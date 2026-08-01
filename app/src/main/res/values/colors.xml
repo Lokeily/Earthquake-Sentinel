@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- iOS 风格配色 -->
+    <color name="ios_blue">#007AFF</color>
+    <color name="ios_blue_dark">#0A6CFF</color>
+    <color name="ios_grouped_bg">#F2F2F7</color>
+    <color name="ios_card_bg">#FFFFFF</color>
+    <color name="ios_separator">#E5E5EA</color>
+    <color name="ios_label">#1C1C1E</color>
+    <color name="ios_label_secondary">#8E8E93</color>
+    <color name="ios_destructive">#FF3B30</color>
+    <color name="alert_red">#FF3B30</color>
+    <color name="ios_green">#34C759</color>
+    <color name="source_gray">#C7C7CC</color>
+    <color name="source_orange">#FF9500</color>
+
+    <!-- 四级预警配色（中国大陆地震预警标准） -->
+    <color name="level_red">#FF3B30</color>
+    <color name="level_orange">#FF9500</color>
+    <color name="level_yellow">#FFCC00</color>
+    <color name="level_blue">#0A84FF</color>
+
+    <!-- 启动图标背景 -->
+    <color name="ic_launcher_background">#007AFF</color>
+
+    <!-- 兼容旧引用，避免遗漏处报错 -->
+    <color name="primary">#007AFF</color>
+    <color name="primary_dark">#0A6CFF</color>
+    <color name="accent">#007AFF</color>
+    <color name="bg_dark">#F2F2F7</color>
+    <color name="card">#FFFFFF</color>
+    <color name="text_primary">#1C1C1E</color>
+    <color name="text_secondary">#8E8E93</color>
+</resources>

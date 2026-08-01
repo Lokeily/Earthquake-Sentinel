@@ -1,0 +1,27 @@
+# 忽略本地构建产物与本地 SDK 配置
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+captures/
+.DS_Store
+
+# 签名密钥（绝不可提交；丢失将无法更新已发布的应用）
+*.jks
+*.keystore
+signing.properties
+
+# 本地归档与临时文件
+_archived/
+_git_old/
+archive/
+*.apk
+
+# 本地构建说明（沙箱遗留，不进入公开仓库）
+BUILD.md
+build_log.txt
+
+# 内部构建工具与发布脚本（可能包含旧 token，不公开）
+buildtools/

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      主题改为 DayNight（v1.0.17）：所有颜色都走 @color/ 引用，
+      深色模式下自动切到 values-night/colors.xml 的 OLED 纯黑配色，无需重复定义主题。
+      状态栏图标明暗由 @bool/light_status_bar 跟随日夜切换。
+    -->
+    <style name="Theme.Dianguard" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/ios_blue</item>
+        <item name="colorPrimaryDark">@color/ios_blue_dark</item>
+        <item name="colorAccent">@color/ios_blue</item>
+        <item name="android:windowBackground">@color/ios_grouped_bg</item>
+        <item name="android:statusBarColor">@color/ios_grouped_bg</item>
+        <item name="android:navigationBarColor">@color/ios_card_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">@bool/light_status_bar</item>
+    </style>
+
+    <!-- 全屏告警主题：全屏、锁屏可见。背景色由 AlertActivity 按预警等级动态设置，
+         此处仅给一个中性底色，避免等级着色生效前出现红色闪屏。
+         告警页刻意**不跟随深色模式**：真实地震时必须是固定、可预期的高对比配色。 -->
+    <style name="Theme.Dianguard.Alert" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
+</resources>
