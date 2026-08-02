@@ -250,18 +250,17 @@ class EewAlertManager(val service: EewService) {
         if (destroyed || backupSource != null) return
         val bs = BackupSource(
             onEvent = { eew, sourceName -> handleBackupEew(eew, sourceName) },
-            onStatus = { note -> EewService.backupNote = note }
+            onStatus = { note -> EewService.updateState { copy(backupNote = note) } }
         )
         backupSource = bs
-        EewService.backupActive = true
+        EewService.updateState { copy(backupActive = true) }
         bs.start()
     }
 
     fun stopBackupSource() {
         backupSource?.stop()
         backupSource = null
-        EewService.backupActive = false
-        EewService.backupNote = "待命中"
+        EewService.updateState { copy(backupActive = false, backupNote = "待命中") }
     }
 
     private fun handleBackupEew(eew: Eew, sourceName: String) {
