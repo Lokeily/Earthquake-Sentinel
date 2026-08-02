@@ -218,8 +218,8 @@ class AlertActivity : AppCompatActivity() {
             override fun onTick(millisUntilFinished: Long) {
                 val sec = (millisUntilFinished / 1000).toInt() + 1
                 tvCountdown.text = sec.toString()
-                // 进入最后 10 秒：停掉第一段短语，改播音频里自带的 10→1 倒计时播报（一次性，不循环）
-                if (sec in 1..10 && !countdownTriggered) {
+                // 进入最后 14 秒时启动倒计时播报（提前4秒缓冲，确保10→1念完）
+                if (sec in 1..14 && !countdownTriggered) {
                     countdownTriggered = true
                     EewVoice.stopPhrase()
                     EewVoice.playCountdown(currentLevel)
