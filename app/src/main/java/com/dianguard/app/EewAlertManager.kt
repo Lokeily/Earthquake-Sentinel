@@ -151,6 +151,7 @@ class EewAlertManager(val service: EewService) {
                 reportNum = eew.reportNum, triggered = intOk, backup = false
             )
         )
+        notifyHistoryChanged()
     }
 
     // ===================== 告警触发 =====================
@@ -288,6 +289,7 @@ class EewAlertManager(val service: EewService) {
                 triggered = false, backup = true
             )
         )
+        notifyHistoryChanged()
         postBackupNotify(eew, distKm, intensityStr, sourceName)
     }
 
@@ -315,5 +317,13 @@ class EewAlertManager(val service: EewService) {
     fun destroy() {
         destroyed = true
         stopBackupSource()
+    }
+
+    /** 通知 HistoryFragment 刷新列表 */
+    private fun notifyHistoryChanged() {
+        try {
+            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(service)
+                .sendBroadcast(Intent(EewService.ACTION_HISTORY_CHANGED))
+        } catch (_: Exception) { }
     }
 }
