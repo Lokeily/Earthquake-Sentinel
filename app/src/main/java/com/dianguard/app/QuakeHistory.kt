@@ -99,6 +99,23 @@ object QuakeHistory {
 
     // ===================== 内部实现（均需持有 lock） =====================
 
+    /** 解析发震时间字符串为毫秒时间戳（用于排序），解析失败返回 0 */
+    private fun parseOtMs(ot: String): Long {
+        if (ot.isBlank()) return 0L
+        return try {
+            val cleaned = ot.trim().replace("T", " ").replace("Z", "")
+                .replace(Regex("\\.\\d+"), "")
+                .let { s ->
+                    val tzIdx = s.indexOfFirst { it == '+' || it == '-' }
+                    if (tzIdx > 10) s.substring(0, tzIdx).trim() else s
+                }.take(19)
+            if (cleaned.length < 16) return 0L
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+            sdf.timeZone = java.util.TimeZone.getTimeZone("Asia/Shanghai")
+            sdf.parse(cleaned)?.time ?: 0L
+        } catch (_: Exception) { 0L }
+    }
+
     private fun loadLocked(): List<QuakeRecord> {
         val raw = AppConfig.historyJson
         if (raw.isBlank()) return emptyList()
@@ -109,7 +126,7 @@ object QuakeHistory {
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
                 val t = o.optLong("t", 0L)
-                if (t < cutoff) continue // 过期条目直接丢弃
+                if (t < cutoff) continue
                 out.add(
                     QuakeRecord(
                         key = o.optString("k", ""),
@@ -128,10 +145,10 @@ object QuakeHistory {
                     )
                 )
             }
-            out.sortByDescending { it.timeMs }
+            // 按发震时间倒序（最新在上）；解析失败回退 timeMs
+            out.sortByDescending { r -> parseOtMs(r.originTime).let { if (it > 0L) it else r.timeMs } }
             out
         } catch (e: Exception) {
-            // 数据损坏（极端情况下的写入中断）：丢弃重来，绝不因历史记录影响预警主链路
             Log.w(TAG, "历史记录解析失败，已重置: ${e.message}")
             AppConfig.historyJson = "[]"
             emptyList()
@@ -142,7 +159,7 @@ object QuakeHistory {
         val cutoff = System.currentTimeMillis() - KEEP_MS
         val pruned = list
             .filter { it.timeMs >= cutoff }
-            .sortedByDescending { it.timeMs }
+            .sortedByDescending { r -> parseOtMs(r.originTime).let { if (it > 0L) it else r.timeMs } }
             .take(MAX_RECORDS)
         val arr = JSONArray()
         for (r in pruned) {

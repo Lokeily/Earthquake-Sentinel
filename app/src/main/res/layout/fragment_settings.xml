@@ -226,6 +226,19 @@
         <Space android:layout_width="match_parent" android:layout_height="12dp" />
 
         <Button
+            android:id="@+id/btn_clear_history"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="@string/history_clear_settings"
+            android:textColor="@color/alert_red"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
+        <Button
             android:id="@+id/btn_disclaimer"
             android:layout_width="match_parent"
             android:layout_height="44dp"

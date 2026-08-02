@@ -35,6 +35,7 @@ class SettingsFragment : Fragment() {
     private lateinit var btnTest: Button
     private lateinit var btnSelfCheck: Button
     private lateinit var btnCheckUpdate: Button
+    private lateinit var btnClearHistory: Button
     private lateinit var btnDisclaimer: Button
     private lateinit var tvAboutVersion: TextView
 
@@ -58,6 +59,7 @@ class SettingsFragment : Fragment() {
         btnTest = root.findViewById(R.id.btn_test)
         btnSelfCheck = root.findViewById(R.id.btn_selfcheck)
         btnCheckUpdate = root.findViewById(R.id.btn_check_update)
+        btnClearHistory = root.findViewById(R.id.btn_clear_history)
         btnDisclaimer = root.findViewById(R.id.btn_disclaimer)
         tvAboutVersion = root.findViewById(R.id.tv_about_version)
 
@@ -87,6 +89,7 @@ class SettingsFragment : Fragment() {
         btnDisclaimer.setOnClickListener {
             startActivity(Intent(requireContext(), DisclaimerActivity::class.java))
         }
+        btnClearHistory.setOnClickListener { confirmClearHistory() }
 
         try {
             tvAboutVersion.text = getString(R.string.about_version, BuildConfig.VERSION_NAME)
@@ -193,6 +196,23 @@ class SettingsFragment : Fragment() {
 
     private fun saveConfig() {
         AppConfig.distantNotify = swDistant.isChecked
+    }
+
+    /** 清空预警历史记录（带确认弹窗） */
+    private fun confirmClearHistory() {
+        if (QuakeHistory.all().isEmpty()) {
+            Toast.makeText(requireContext(), "暂无历史记录", Toast.LENGTH_SHORT).show()
+            return
+        }
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle(R.string.history_clear)
+            .setMessage(R.string.history_clear_confirm)
+            .setPositiveButton(R.string.history_clear) { _, _ ->
+                HistoryFragment.clearAll()
+                Toast.makeText(requireContext(), "已清空预警历史记录", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     // ===================== 检查更新（手动） =====================

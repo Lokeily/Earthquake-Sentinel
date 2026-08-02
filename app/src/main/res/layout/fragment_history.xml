@@ -80,17 +80,5 @@
 
         <Space android:layout_width="match_parent" android:layout_height="16dp" />
 
-        <Button
-            android:id="@+id/btn_history_clear"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_button_secondary"
-            android:text="@string/history_clear"
-            android:textColor="@color/alert_red"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
-
-    </LinearLayout>
+</LinearLayout>
 </ScrollView>

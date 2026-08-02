@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import java.text.SimpleDateFormat
@@ -27,7 +26,6 @@ class HistoryFragment : Fragment() {
     private lateinit var historyList: LinearLayout
     private lateinit var tvEmpty: TextView
     private lateinit var tvCount: TextView
-    private lateinit var btnClear: Button
     private lateinit var tvFetchHint: TextView
 
     private val dateFmt = SimpleDateFormat("MM-dd HH:mm", Locale.CHINA)
@@ -68,9 +66,7 @@ class HistoryFragment : Fragment() {
         historyList = root.findViewById(R.id.history_list)
         tvEmpty = root.findViewById(R.id.tv_history_empty)
         tvCount = root.findViewById(R.id.tv_history_count)
-        btnClear = root.findViewById(R.id.btn_history_clear)
         tvFetchHint = root.findViewById(R.id.tv_fetch_hint)
-        btnClear.setOnClickListener { confirmClear() }
         return root
     }
 
@@ -176,16 +172,8 @@ class HistoryFragment : Fragment() {
         }
     }
 
-    private fun confirmClear() {
-        if (QuakeHistory.all().isEmpty()) return
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.history_clear)
-            .setMessage(R.string.history_clear_confirm)
-            .setPositiveButton(R.string.history_clear) { _, _ ->
-                QuakeHistory.clear()
-                rebuild()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+    companion object {
+        /** 清空历史记录（供设置页调用） */
+        fun clearAll() { QuakeHistory.clear() }
     }
 }

@@ -84,6 +84,7 @@
     <string name="history_empty">暂无记录\n\n开启预警监听后，检测到的每一次地震都会记录在这里，即使当时没有达到告警阈值。</string>
     <string name="history_clear">清空记录</string>
     <string name="history_clear_confirm">确定清空全部历史记录吗？此操作不可恢复。</string>
+    <string name="history_clear_settings">清空预警历史记录</string>
     <string name="history_count">共 %1$d 条记录</string>
     <string name="history_badge_alerted">已告警</string>
     <string name="history_badge_backup">备用源速报</string>
