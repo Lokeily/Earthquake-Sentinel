@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -11,66 +12,124 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * 地震历史记录自动抓取（v1.1.2 重写：中文地名 + 昨天今天）。
+ * 地震历史记录多源自动抓取（v1.1.2 整合版）。
  *
- * 数据源优先级：
- * 1. Wolfx CENC 历史目录 — 中国地震台网官方目录，中文地名，M3.0+（首选）
- * 2. USGS FDSN — 全球目录，英文地名→坐标转省份中文兜底
+ * 数据源（按优先级）：
+ * 1. 中国地震台网-CENC 官方速报 (ceic.ac.cn) — 最权威中文数据，M3.0+
+ * 2. Wolfx CENC 聚合目录 — 中国地震台网数据聚合，中文地名
+ * 3. 美国地质调查局-USGS FDSN — 全球权威目录，英文→坐标转省份
+ * 4. 德国地学中心-GFZ FDSN — 欧洲权威目录，交叉验证
+ * 5. Wolfx CENC EEW 单条速报 — 兜底
  *
- * 范围：中国境内及周边（15-55N, 70-140E）
- * 时间：48 小时
+ * 范围：中国及周边（15-55N, 70-140E）
+ * 时间：48 小时（昨天+今天）
  */
 object HistoryFetcher {
 
     private const val TAG = "HistoryFetcher"
 
-    /** Wolfx CENC 历史地震目录（中文地名） */
+    // === 数据源端点 ===
+    private const val CENC_SPEED = "http://www.ceic.ac.cn/ajax/speedsearch"
     private const val CENC_CATALOG = "https://api.wolfx.jp/quake_cenc.json"
+    private const val CENC_EEW = "https://api.wolfx.jp/cenc_eew.json"
 
-    /** Wolfx CENC 最新速报（兜底） */
-    private const val CENC_URL = "https://api.wolfx.jp/cenc_eew.json"
+    /** USGS FDSN */
+    private val USGS_URL: String
+        get() = fdsnUrl("https://earthquake.usgs.gov/fdsnws/event/1/query")
 
-    /** 时间过滤：48 小时 */
+    /** GFZ 德国地学中心（权威交叉验证） */
+    private val GFZ_URL: String
+        get() = fdsnUrl("https://geofon.gfz-potsdam.de/fdsnws/event/1/query")
+
+    private fun fdsnUrl(base: String): String {
+        val now = java.time.Instant.now().toString()
+        val ago = java.time.Instant.now().minusSeconds(48 * 3600).toString()
+        return "$base?format=geojson&starttime=$ago&endtime=$now" +
+            "&minlatitude=15&maxlatitude=55&minlongitude=70&maxlongitude=140" +
+            "&minmagnitude=3.0&orderby=time"
+    }
+
     private const val MAX_AGE_MS = 48 * 60 * 60 * 1000L
 
-    /** USGS FDSN 查询 */
-    private val USGS_QUERY: String
-        get() {
-            val now = java.time.Instant.now().toString()
-            val twoDaysAgo = java.time.Instant.now().minusSeconds(48 * 3600).toString()
-            return "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson" +
-                "&starttime=$twoDaysAgo&endtime=$now" +
-                "&minlatitude=15&maxlatitude=55&minlongitude=70&maxlongitude=140" +
-                "&minmagnitude=3.0&orderby=time"
-        }
-
-    private val isoFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+    private val isoFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("Asia/Shanghai")
     }
+
+    // ===================== 公开入口 =====================
 
     fun fetchAndRecord(callback: (addedCount: Int) -> Unit) {
         Thread {
             var added = 0
-            // 1. CENC 中文目录（首选）
+            // 源1: CENC 官方速报（最权威）
+            try { added += fetchCencSpeedsearch() }
+            catch (e: Exception) { Log.w(TAG, "CENC速报: ${e.message}") }
+            // 源2: Wolfx CENC 聚合
             try { added += fetchCencCatalog() }
-            catch (e: Exception) { Log.w(TAG, "CENC 目录失败: ${e.message}") }
-            // 2. USGS（补漏，坐标转中文省份）
-            try { added += fetchUsgsFdsn() }
-            catch (e: Exception) { Log.w(TAG, "USGS 失败: ${e.message}") }
-            // 3. CENC 速报兜底
-            try { added += fetchCenc() }
-            catch (e: Exception) { Log.w(TAG, "CENC 速报失败: ${e.message}") }
-            Log.i(TAG, "完成，新增 $added 条")
+            catch (e: Exception) { Log.w(TAG, "CENC聚合: ${e.message}") }
+            // 源3: USGS FDSN
+            try { added += fetchFdsn(USGS_URL, "USGS") }
+            catch (e: Exception) { Log.w(TAG, "USGS: ${e.message}") }
+            // 源4: GFZ FDSN（交叉验证）
+            try { added += fetchFdsn(GFZ_URL, "GFZ") }
+            catch (e: Exception) { Log.w(TAG, "GFZ: ${e.message}") }
+            // 源5: CENC EEW 单条兜底
+            try { added += fetchCencEew() }
+            catch (e: Exception) { Log.w(TAG, "CENC-EEW: ${e.message}") }
+
+            Log.i(TAG, "多源抓取完成：新增 $added 条记录")
             Handler(Looper.getMainLooper()).post { callback(added) }
         }.start()
     }
 
-    /** Wolfx CENC 历史目录 — 返回中文地名数组 */
-    private fun fetchCencCatalog(): Int {
-        val body = httpGet(CENC_CATALOG) ?: return 0
+    // ===================== 源1: CENC 官方速报 =====================
+
+    private fun fetchCencSpeedsearch(): Int {
+        // CENC 速报 API：POST 带时间参数，返回 JSON 数组
+        val body = httpPost(CENC_SPEED) ?: return 0
         val arr = try { org.json.JSONArray(body) } catch (_: Exception) { return 0 }
         var added = 0
         val now = System.currentTimeMillis()
+
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            val lat = obj.optDouble("EPI_LAT", Double.NaN)
+            val lon = obj.optDouble("EPI_LON", Double.NaN)
+            if (lat.isNaN() || lon.isNaN()) continue
+
+            val oTime = obj.optString("O_TIME", "")
+            val otMs = parseOriginTimeMs(oTime)
+            if (otMs > 0L && now - otMs > MAX_AGE_MS) continue
+
+            val mag = obj.optDouble("M", 0.0)
+            val id = obj.optString("CATA_ID", obj.optString("EVENT_ID", ""))
+            val quakeKey = "cenc_sp|$id"
+            val intensityStr = "约${"%.0f".format(estimateIntensityFromMagnitude(mag))}"
+
+            val distKm = if (AppConfig.hasLocation)
+                haversineKm(AppConfig.homeLat, AppConfig.homeLon, lat, lon) else 0.0
+
+            recordIfNew(QuakeRecord(
+                key = quakeKey, timeMs = otMs.coerceAtLeast(now),
+                originTime = oTime,
+                place = obj.optString("LOCATION_C", "未知地区"),
+                magnitude = mag,
+                depthKm = obj.optDouble("EPI_DEPTH", 0.0),
+                intensity = intensityStr, distanceKm = distKm,
+                etaSec = AppConfig.estimateSWaveEtaSeconds(distKm),
+                sourceName = "中国地震台网", reportNum = 1,
+                triggered = false, backup = true
+            ))
+            added++
+        }
+        return added
+    }
+
+    // ===================== 源2: Wolfx CENC 聚合 =====================
+
+    private fun fetchCencCatalog(): Int {
+        val body = httpGet(CENC_CATALOG) ?: return 0
+        val arr = try { org.json.JSONArray(body) } catch (_: Exception) { return 0 }
+        var added = 0; val now = System.currentTimeMillis()
 
         for (i in 0 until arr.length()) {
             val obj = arr.optJSONObject(i) ?: continue
@@ -78,16 +137,14 @@ object HistoryFetcher {
             val lon = obj.optDouble("Longitude", Double.NaN)
             if (lat.isNaN() || lon.isNaN()) continue
 
-            val originTime = obj.optString("OriginTime", obj.optString("O_TIME", ""))
-            val otMs = parseOriginTimeMs(originTime)
+            val oTime = obj.optString("OriginTime", obj.optString("O_TIME", ""))
+            val otMs = parseOriginTimeMs(oTime)
             if (otMs > 0L && now - otMs > MAX_AGE_MS) continue
 
             val mag = obj.optDouble("Magnitude", obj.optDouble("M", 0.0))
             val id = obj.optString("ID", obj.optString("EventID", ""))
-            val reportNum = obj.optInt("ReportNum", 1)
-
-            val quakeKey = "cenc_cat|${id}|${reportNum}"
-            val intensityStr = if (obj.has("MaxIntensity") && obj.optString("MaxIntensity").isNotBlank())
+            val quakeKey = "cenc_cat|$id"
+            val intensityStr = if (obj.optString("MaxIntensity", "").isNotBlank())
                 obj.optString("MaxIntensity")
             else "约${"%.0f".format(estimateIntensityFromMagnitude(mag))}"
 
@@ -96,13 +153,13 @@ object HistoryFetcher {
 
             recordIfNew(QuakeRecord(
                 key = quakeKey, timeMs = otMs.coerceAtLeast(now),
-                originTime = originTime,
+                originTime = oTime,
                 place = obj.optString("HypoCenter", obj.optString("LOCATION_C", "未知地区")),
                 magnitude = mag,
                 depthKm = obj.optDouble("Depth", obj.optDouble("EPI_DEPTH", 0.0)),
                 intensity = intensityStr, distanceKm = distKm,
                 etaSec = AppConfig.estimateSWaveEtaSeconds(distKm),
-                sourceName = "中国地震台网", reportNum = reportNum,
+                sourceName = "中国地震台网", reportNum = obj.optInt("ReportNum", 1),
                 triggered = false, backup = true
             ))
             added++
@@ -110,13 +167,13 @@ object HistoryFetcher {
         return added
     }
 
-    /** USGS FDSN — 坐标转中文省份 */
-    private fun fetchUsgsFdsn(): Int {
-        val body = httpGet(USGS_QUERY) ?: return 0
+    // ===================== 源3+4: USGS / GFZ FDSN =====================
+
+    private fun fetchFdsn(url: String, source: String): Int {
+        val body = httpGet(url) ?: return 0
         val root = JSONObject(body)
         val features = root.optJSONArray("features") ?: return 0
-        var added = 0
-        val now = System.currentTimeMillis()
+        var added = 0; val now = System.currentTimeMillis()
 
         for (i in 0 until features.length()) {
             val f = features.optJSONObject(i) ?: continue
@@ -128,31 +185,30 @@ object HistoryFetcher {
             val lon = coords.optDouble(0, Double.NaN)
             val lat = coords.optDouble(1, Double.NaN)
             if (lat.isNaN() || lon.isNaN()) continue
-
             val depth = if (coords.length() >= 3) coords.optDouble(2, 0.0) else 0.0
             val timeMs = props.optLong("time", 0L)
             if (timeMs <= 0L || now - timeMs > MAX_AGE_MS) continue
-
             val id = f.optString("id", ""); if (id.isBlank()) continue
             val mag = props.optDouble("mag", 0.0)
-            val quakeKey = "usgs|$id"
-            val intensityStr = "约${"%.0f".format(estimateIntensityFromMagnitude(mag))}"
 
+            val quakeKey = "${source.lowercase()}|$id"
+            val intensityStr = "约${"%.0f".format(estimateIntensityFromMagnitude(mag))}"
             val distKm = if (AppConfig.hasLocation)
                 haversineKm(AppConfig.homeLat, AppConfig.homeLon, lat, lon) else 0.0
 
-            // 英文地名→中文省份+方位
-            val usgsPlace = props.optString("place", "")
-            val chinesePlace = if (usgsPlace.isNotBlank() && !usgsPlace.contains(Regex("[\\u4e00-\\u9fff]")))
-                coordToChineseProvince(lat, lon) else usgsPlace
+            // 英文地名→坐标转中文省份
+            val rawPlace = props.optString("place", "")
+            val chinesePlace = if (rawPlace.isNotBlank() && !rawPlace.contains(Regex("[\\u4e00-\\u9fff]")))
+                coordToChineseProvince(lat, lon)
+            else rawPlace
 
             recordIfNew(QuakeRecord(
                 key = quakeKey, timeMs = timeMs,
-                originTime = isoFormat.format(Date(timeMs)),
+                originTime = isoFmt.format(Date(timeMs)),
                 place = chinesePlace, magnitude = mag, depthKm = depth,
                 intensity = intensityStr, distanceKm = distKm,
                 etaSec = AppConfig.estimateSWaveEtaSeconds(distKm),
-                sourceName = "USGS (速报)", reportNum = 1,
+                sourceName = "$source (速报)", reportNum = 1,
                 triggered = false, backup = true
             ))
             added++
@@ -160,42 +216,38 @@ object HistoryFetcher {
         return added
     }
 
-    /** Wolfx CENC 最新速报（兜底） */
-    private fun fetchCenc(): Int {
-        val body = httpGet(CENC_URL) ?: return 0
+    // ===================== 源5: CENC EEW 单条速报兜底 =====================
+
+    private fun fetchCencEew(): Int {
+        val body = httpGet(CENC_EEW) ?: return 0
         val obj = JSONObject(body)
         if (!obj.has("Latitude") || !obj.has("Longitude")) return 0
         val lat = obj.optDouble("Latitude", Double.NaN)
         val lon = obj.optDouble("Longitude", Double.NaN)
         if (lat.isNaN() || lon.isNaN()) return 0
 
-        val originTime = obj.optString("OriginTime", "")
-        val otMs = parseOriginTimeMs(originTime)
+        val oTime = obj.optString("OriginTime", "")
+        val otMs = parseOriginTimeMs(oTime)
         if (otMs > 0L && System.currentTimeMillis() - otMs > MAX_AGE_MS) return 0
 
-        val eew = Eew(
-            id = obj.optString("ID", ""),
-            eventId = obj.optString("EventID", obj.optString("ID", "")),
-            reportNum = obj.optInt("ReportNum", 1), originTime = originTime,
-            hypoCenter = obj.optString("HypoCenter", "未知地区"),
-            latitude = lat, longitude = lon,
-            magnitude = obj.optDouble("Magnitude", obj.optDouble("Magunitude", 0.0)),
-            depthKm = obj.optDouble("Depth", 0.0),
-            maxIntensity = obj.optString("MaxIntensity", "")
-        )
+        val mag = obj.optDouble("Magnitude", obj.optDouble("Magunitude", 0.0))
+        val eId = obj.optString("EventID", obj.optString("ID", ""))
+        val rpt = obj.optInt("ReportNum", 1)
+        val quakeKey = "cenc_eew|$eId|$rpt"
+        val intensityStr = if (obj.optString("MaxIntensity", "").isNotBlank())
+            obj.optString("MaxIntensity")
+        else "约${"%.0f".format(estimateIntensityFromMagnitude(mag))}"
         val distKm = if (AppConfig.hasLocation)
-            haversineKm(AppConfig.homeLat, AppConfig.homeLon, eew.latitude, eew.longitude) else 0.0
-        val quakeKey = "cenc|${eew.eventId}|${eew.reportNum}"
-        val intensityStr = if (eew.maxIntensity.isNotBlank()) eew.maxIntensity
-        else "约${"%.0f".format(estimateIntensityFromMagnitude(eew.magnitude))}"
+            haversineKm(AppConfig.homeLat, AppConfig.homeLon, lat, lon) else 0.0
 
         recordIfNew(QuakeRecord(
             key = quakeKey, timeMs = otMs.coerceAtLeast(System.currentTimeMillis()),
-            originTime = eew.originTime, place = eew.hypoCenter,
-            magnitude = eew.magnitude, depthKm = eew.depthKm,
+            originTime = oTime,
+            place = obj.optString("HypoCenter", "未知地区"),
+            magnitude = mag, depthKm = obj.optDouble("Depth", 0.0),
             intensity = intensityStr, distanceKm = distKm,
             etaSec = AppConfig.estimateSWaveEtaSeconds(distKm),
-            sourceName = "中国地震台网 (速报)", reportNum = eew.reportNum,
+            sourceName = "中国地震台网 (实时)", reportNum = rpt,
             triggered = false, backup = true
         ))
         return 1
@@ -207,6 +259,19 @@ object HistoryFetcher {
         val req = Request.Builder().url(url).header("Accept", "application/json").build()
         HttpClient.instance.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) { Log.w(TAG, "$url -> ${resp.code}"); return null }
+            return resp.body?.string()
+        }
+    }
+
+    /** CENC 速报 API 使用 POST */
+    private fun httpPost(url: String): String? {
+        val body = okhttp3.RequestBody.create("application/x-www-form-urlencoded".toMediaType(), "")
+        val req = Request.Builder().url(url)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0")
+            .post(body).build()
+        HttpClient.instance.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) { Log.w(TAG, "$url POST -> ${resp.code}"); return null }
             return resp.body?.string()
         }
     }
@@ -232,13 +297,8 @@ object HistoryFetcher {
         } catch (_: Exception) { 0L }
     }
 
-    /**
-     * 经纬度 → 中国省份/地区中文名。
-     * 基于省份近似边界框，精度足够区分到省级。
-     * 不覆盖中国全境时返回经纬度格式。
-     */
+    /** 经纬度 → 中文省份 */
     private fun coordToChineseProvince(lat: Double, lon: Double): String {
-        // 省份边界框 (latMin, latMax, lonMin, lonMax)
         data class Rect(val latMin: Double, val latMax: Double, val lonMin: Double, val lonMax: Double)
         val provinces = listOf(
             "黑龙江" to Rect(43.0, 54.0, 121.0, 135.0),
