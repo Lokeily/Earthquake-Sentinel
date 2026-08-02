@@ -261,7 +261,7 @@ class HomeFragment : Fragment() {
                 .setPositiveButton("关闭") { _, _ ->
                     requireContext().stopService(Intent(requireContext(), EewService::class.java))
                     AppConfig.serviceEnabled = false
-                    EewService.headlineState = "监听未开启"
+                    EewService.updateState { copy(headlineState = "监听未开启") }
                     refreshEnableUi()
                 }
                 .show()
