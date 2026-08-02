@@ -297,7 +297,7 @@ class HomeFragment : Fragment() {
             )
             mp.setOnPreparedListener { it.start() }
             mp.setOnCompletionListener { it.release() }
-            mp.setOnErrorListener { _, _, _ -> try { it.release() } catch (_: Exception) {}; true }
+            mp.setOnErrorListener { _, _, _ -> try { mp.release() } catch (_: Exception) {}; true }
             mp.prepareAsync()
         } catch (_: Exception) { }
     }
