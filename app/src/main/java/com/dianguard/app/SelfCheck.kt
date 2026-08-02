@@ -121,8 +121,13 @@ object SelfCheck {
         return list
     }
 
-    /** 弹出自检结果对话框：顶部汇总 + 逐项 ✅/❌，并提供“去设置 / 重新检测 / 关闭” */
+    /** 弹出自检结果对话框：顶部汇总 + 逐项 ✅/❌，并提供"去设置 / 重新检测 / 关闭" */
     fun showDialog(context: Context) {
+        showDialog(context, null)
+    }
+
+    /** 自检对话框 + 回调：用户点"继续"后执行 onContinue */
+    fun showDialog(context: Context, onContinue: (() -> Unit)?) {
         val items = items(context)
         val failed = items.count { !it.ok }
         val okMark = context.getString(R.string.selfcheck_ok)
@@ -131,13 +136,17 @@ object SelfCheck {
             "${if (item.ok) okMark else failMark} ${item.label} — ${item.detail}"
         }
         val summary = if (failed == 0) "全部就绪 ✅" else "有 $failed 项需处理 ❌"
-        AlertDialog.Builder(context)
+        val builder = AlertDialog.Builder(context)
             .setTitle(R.string.selfcheck_title)
             .setMessage("$summary\n\n$lines")
             .setPositiveButton(R.string.selfcheck_open) { _, _ -> openAppSettings(context) }
-            .setNeutralButton(R.string.selfcheck_recheck) { _, _ -> showDialog(context) }
-            .setNegativeButton(R.string.selfcheck_close, null)
-            .show()
+            .setNeutralButton(R.string.selfcheck_recheck) { _, _ -> showDialog(context, onContinue) }
+        if (onContinue != null) {
+            builder.setNegativeButton("继续") { _, _ -> onContinue() }
+        } else {
+            builder.setNegativeButton(R.string.selfcheck_close, null)
+        }
+        builder.show()
     }
 
     /** 跳转应用详情设置页（通知 / 定位 / 电池优化等多数列表项集中在此） */

@@ -252,23 +252,43 @@ class HomeFragment : Fragment() {
 
     private fun toggleService() {
         if (AppConfig.serviceEnabled) {
-            requireContext().stopService(Intent(requireContext(), EewService::class.java))
-            AppConfig.serviceEnabled = false
-            // 立即更新头条状态（stopService 是异步的，onDestroy 中的重置可能延迟）
-            EewService.headlineState = "监听未开启"
-            Toast.makeText(requireContext(), "已停止预警监听", Toast.LENGTH_SHORT).show()
+            // 关闭预警监听：播放提示音 + 确认弹窗
+            playServiceAudio(R.raw.disable_notify)
+            AlertDialog.Builder(requireContext())
+                .setTitle("关闭预警监听")
+                .setMessage("关闭预警监听功能，预警系统将失效，请注意确认！")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("关闭") { _, _ ->
+                    requireContext().stopService(Intent(requireContext(), EewService::class.java))
+                    AppConfig.serviceEnabled = false
+                    EewService.headlineState = "监听未开启"
+                    refreshEnableUi()
+                }
+                .show()
         } else {
             if (!AppConfig.disclaimerAccepted) {
                 showDisclaimerBeforeEnable()
                 return
             }
-            val intent = Intent(requireContext(), EewService::class.java)
-            ContextCompat.startForegroundService(requireContext(), intent)
-            AppConfig.serviceEnabled = true
-            Toast.makeText(requireContext(), "地震哨兵已开始监听震前预警", Toast.LENGTH_SHORT).show()
-            showEnableGuide()
+            // 系统自检 → 确认 → 播放提示音 → 启动服务
+            SelfCheck.showDialog(requireContext()) {
+                playServiceAudio(R.raw.enable_notify)
+                val intent = Intent(requireContext(), EewService::class.java)
+                ContextCompat.startForegroundService(requireContext(), intent)
+                AppConfig.serviceEnabled = true
+                refreshEnableUi()
+                showEnableGuide()
+            }
         }
-        refreshEnableUi()
+    }
+
+    /** 播放服务状态提示音（自动释放 MediaPlayer） */
+    private fun playServiceAudio(resId: Int) {
+        try {
+            val mp = android.media.MediaPlayer.create(requireContext(), resId)
+            mp?.setOnCompletionListener { it.release() }
+            mp?.start()
+        } catch (_: Exception) { }
     }
 
     /**
