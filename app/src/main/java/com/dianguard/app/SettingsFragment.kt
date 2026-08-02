@@ -220,9 +220,11 @@ class SettingsFragment : Fragment() {
     private fun checkUpdate() {
         Toast.makeText(requireContext(), "正在检查更新…", Toast.LENGTH_SHORT).show()
         AppUpdateChecker.check(requireContext()) { info ->
-            requireActivity().runOnUiThread {
+            val act = activity ?: return@check
+            act.runOnUiThread {
+                if (!isAdded) return@runOnUiThread
                 if (info.available) {
-                    AppUpdater.showUpdateDialog(requireActivity() as AppCompatActivity, info)
+                    AppUpdater.showUpdateDialog(act as AppCompatActivity, info)
                 } else {
                     Toast.makeText(requireContext(), getString(R.string.update_none), Toast.LENGTH_SHORT).show()
                 }

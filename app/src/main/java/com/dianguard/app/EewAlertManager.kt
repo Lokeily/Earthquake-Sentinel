@@ -130,8 +130,10 @@ class EewAlertManager(val service: EewService) {
             if (activeEventId == eew.eventId || activeQuakeKey == quakeKey) {
                 postRefresh(eew, distKm, etaSec, intensityStr)
             } else if (!seenBefore) {
-                activeEventId = eew.eventId
-                activeQuakeKey = quakeKey
+                synchronized(this) {
+                    activeEventId = eew.eventId
+                    activeQuakeKey = quakeKey
+                }
                 triggerAlert(eew, distKm, etaSec, intensityStr)
             } else {
                 Log.i(EewService.TAG, "跨源重复事件，跳过新告警: $quakeKey")

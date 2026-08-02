@@ -29,7 +29,7 @@ object HistoryFetcher {
     private const val TAG = "HistoryFetcher"
 
     // === 数据源端点 ===
-    private const val CENC_SPEED = "http://www.ceic.ac.cn/ajax/speedsearch"
+    private const val CENC_SPEED = "https://www.ceic.ac.cn/ajax/speedsearch"
     private const val CENC_CATALOG = "https://api.wolfx.jp/quake_cenc.json"
     private const val CENC_EEW = "https://api.wolfx.jp/cenc_eew.json"
 
@@ -51,6 +51,62 @@ object HistoryFetcher {
 
     private const val MAX_AGE_MS = 48 * 60 * 60 * 1000L
 
+    /** 共享线程池，替代每次 new Thread */
+    private val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread(r, "Dianguard-HistoryFetch").also { it.isDaemon = true }
+    }
+
+    /** 主线程 Handler（复用） */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** 预编译 Regex（性能优化） */
+    private val chineseCharRegex = Regex("[\\u4e00-\\u9fff]")
+    private val millisRegex = Regex("\\.\\d+")
+    private val tzSplitter = { s: String ->
+        val tzIdx = s.indexOfFirst { it == '+' || it == '-' }
+        if (tzIdx > 10) s.substring(0, tzIdx).trim() else s
+    }
+
+    /** 省份边界框（预初始化常量，避免每次调用重建） */
+    private data class Rect(val latMin: Double, val latMax: Double, val lonMin: Double, val lonMax: Double)
+    private val provinces: List<Pair<String, Rect>> = listOf(
+        "黑龙江" to Rect(43.0, 54.0, 121.0, 135.0),
+        "内蒙古" to Rect(37.0, 53.0, 97.0, 126.0),
+        "新疆"   to Rect(34.0, 49.0, 73.0, 96.0),
+        "吉林"   to Rect(41.0, 46.0, 122.0, 131.0),
+        "辽宁"   to Rect(38.0, 43.0, 119.0, 126.0),
+        "北京"   to Rect(39.0, 41.0, 115.0, 118.0),
+        "天津"   to Rect(38.5, 40.0, 116.5, 118.0),
+        "河北"   to Rect(36.0, 42.0, 113.0, 120.0),
+        "山西"   to Rect(34.5, 41.0, 110.0, 115.0),
+        "山东"   to Rect(34.0, 38.5, 115.0, 123.0),
+        "河南"   to Rect(31.0, 36.5, 110.0, 117.0),
+        "陕西"   to Rect(31.5, 39.5, 105.5, 111.5),
+        "宁夏"   to Rect(35.0, 39.5, 104.0, 107.5),
+        "甘肃"   to Rect(32.5, 43.0, 92.0, 109.0),
+        "青海"   to Rect(31.5, 39.0, 89.0, 103.0),
+        "西藏"   to Rect(26.5, 36.5, 78.0, 99.0),
+        "四川"   to Rect(26.0, 34.5, 97.0, 108.5),
+        "重庆"   to Rect(28.0, 32.5, 105.0, 110.5),
+        "湖北"   to Rect(29.0, 33.5, 108.0, 116.5),
+        "安徽"   to Rect(29.0, 35.0, 114.5, 120.0),
+        "江苏"   to Rect(30.5, 35.5, 116.0, 122.0),
+        "上海"   to Rect(30.5, 31.5, 120.5, 122.0),
+        "浙江"   to Rect(27.0, 31.5, 118.0, 123.0),
+        "湖南"   to Rect(24.5, 30.5, 108.5, 114.5),
+        "江西"   to Rect(24.0, 30.5, 113.5, 118.5),
+        "贵州"   to Rect(24.5, 29.5, 103.5, 110.0),
+        "福建"   to Rect(23.5, 28.5, 115.5, 121.0),
+        "云南"   to Rect(21.0, 29.5, 97.5, 106.5),
+        "广西"   to Rect(20.5, 26.5, 104.0, 112.5),
+        "广东"   to Rect(20.0, 25.5, 109.5, 117.5),
+        "海南"   to Rect(18.0, 20.5, 108.5, 111.5),
+        "台湾"   to Rect(21.5, 25.5, 120.0, 122.5),
+        "香港"   to Rect(22.0, 23.0, 113.5, 114.5),
+        "澳门"   to Rect(22.0, 22.5, 113.5, 114.0),
+        "南海"   to Rect(15.0, 21.0, 108.0, 120.0),
+    )
+
     private val isoFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("Asia/Shanghai")
     }
@@ -58,27 +114,21 @@ object HistoryFetcher {
     // ===================== 公开入口 =====================
 
     fun fetchAndRecord(callback: (addedCount: Int) -> Unit) {
-        Thread {
+        executor.execute {
             var added = 0
-            // 源1: CENC 官方速报（最权威）
             try { added += fetchCencSpeedsearch() }
             catch (e: Exception) { Log.w(TAG, "CENC速报: ${e.message}") }
-            // 源2: Wolfx CENC 聚合
             try { added += fetchCencCatalog() }
             catch (e: Exception) { Log.w(TAG, "CENC聚合: ${e.message}") }
-            // 源3: USGS FDSN
             try { added += fetchFdsn(USGS_URL, "USGS") }
             catch (e: Exception) { Log.w(TAG, "USGS: ${e.message}") }
-            // 源4: GFZ FDSN（交叉验证）
             try { added += fetchFdsn(GFZ_URL, "GFZ") }
             catch (e: Exception) { Log.w(TAG, "GFZ: ${e.message}") }
-            // 源5: CENC EEW 单条兜底
             try { added += fetchCencEew() }
             catch (e: Exception) { Log.w(TAG, "CENC-EEW: ${e.message}") }
-
             Log.i(TAG, "多源抓取完成：新增 $added 条记录")
-            Handler(Looper.getMainLooper()).post { callback(added) }
-        }.start()
+            mainHandler.post { callback(added) }
+        }
     }
 
     // ===================== 源1: CENC 官方速报 =====================
@@ -198,7 +248,7 @@ object HistoryFetcher {
 
             // 英文地名→坐标转中文省份
             val rawPlace = props.optString("place", "")
-            val chinesePlace = if (rawPlace.isNotBlank() && !rawPlace.contains(Regex("[\\u4e00-\\u9fff]")))
+            val chinesePlace = if (rawPlace.isNotBlank() && !rawPlace.contains(chineseCharRegex))
                 coordToChineseProvince(lat, lon)
             else rawPlace
 
@@ -285,11 +335,9 @@ object HistoryFetcher {
     private fun parseOriginTimeMs(timeStr: String): Long {
         return try {
             val cleaned = timeStr.trim().replace("T", " ").replace("Z", "")
-                .replace(Regex("\\.\\d+"), "")
-                .let { s ->
-                    val tzIdx = s.indexOfFirst { it == '+' || it == '-' }
-                    if (tzIdx > 10) s.substring(0, tzIdx).trim() else s
-                }.take(19)
+                .replace(millisRegex, "")
+                .let(tzSplitter)
+                .take(19)
             if (cleaned.length < 16) return 0L
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
             sdf.timeZone = TimeZone.getTimeZone("Asia/Shanghai")
@@ -299,44 +347,6 @@ object HistoryFetcher {
 
     /** 经纬度 → 中文省份 */
     private fun coordToChineseProvince(lat: Double, lon: Double): String {
-        data class Rect(val latMin: Double, val latMax: Double, val lonMin: Double, val lonMax: Double)
-        val provinces = listOf(
-            "黑龙江" to Rect(43.0, 54.0, 121.0, 135.0),
-            "内蒙古" to Rect(37.0, 53.0, 97.0, 126.0),
-            "新疆"   to Rect(34.0, 49.0, 73.0, 96.0),
-            "吉林"   to Rect(41.0, 46.0, 122.0, 131.0),
-            "辽宁"   to Rect(38.0, 43.0, 119.0, 126.0),
-            "北京"   to Rect(39.0, 41.0, 115.0, 118.0),
-            "天津"   to Rect(38.5, 40.0, 116.5, 118.0),
-            "河北"   to Rect(36.0, 42.0, 113.0, 120.0),
-            "山西"   to Rect(34.5, 41.0, 110.0, 115.0),
-            "山东"   to Rect(34.0, 38.5, 115.0, 123.0),
-            "河南"   to Rect(31.0, 36.5, 110.0, 117.0),
-            "陕西"   to Rect(31.5, 39.5, 105.5, 111.5),
-            "宁夏"   to Rect(35.0, 39.5, 104.0, 107.5),
-            "甘肃"   to Rect(32.5, 43.0, 92.0, 109.0),
-            "青海"   to Rect(31.5, 39.0, 89.0, 103.0),
-            "西藏"   to Rect(26.5, 36.5, 78.0, 99.0),
-            "四川"   to Rect(26.0, 34.5, 97.0, 108.5),
-            "重庆"   to Rect(28.0, 32.5, 105.0, 110.5),
-            "湖北"   to Rect(29.0, 33.5, 108.0, 116.5),
-            "安徽"   to Rect(29.0, 35.0, 114.5, 120.0),
-            "江苏"   to Rect(30.5, 35.5, 116.0, 122.0),
-            "上海"   to Rect(30.5, 31.5, 120.5, 122.0),
-            "浙江"   to Rect(27.0, 31.5, 118.0, 123.0),
-            "湖南"   to Rect(24.5, 30.5, 108.5, 114.5),
-            "江西"   to Rect(24.0, 30.5, 113.5, 118.5),
-            "贵州"   to Rect(24.5, 29.5, 103.5, 110.0),
-            "福建"   to Rect(23.5, 28.5, 115.5, 121.0),
-            "云南"   to Rect(21.0, 29.5, 97.5, 106.5),
-            "广西"   to Rect(20.5, 26.5, 104.0, 112.5),
-            "广东"   to Rect(20.0, 25.5, 109.5, 117.5),
-            "海南"   to Rect(18.0, 20.5, 108.5, 111.5),
-            "台湾"   to Rect(21.5, 25.5, 120.0, 122.5),
-            "香港"   to Rect(22.0, 23.0, 113.5, 114.5),
-            "澳门"   to Rect(22.0, 22.5, 113.5, 114.0),
-            "南海"   to Rect(15.0, 21.0, 108.0, 120.0),
-        )
         for ((name, r) in provinces) {
             if (lat in r.latMin..r.latMax && lon in r.lonMin..r.lonMax) return name
         }

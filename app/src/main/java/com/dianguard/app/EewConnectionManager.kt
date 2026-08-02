@@ -28,9 +28,9 @@ class EewConnectionManager(val service: EewService) {
     private val maxReconnectDelayMs = 60_000L
 
     // 头条状态机变量
-    private var lastAnyConnectedMs = 0L
+    @Volatile private var lastAnyConnectedMs = 0L
     private val ALL_DOWN_GRACE_MS = 15_000L
-    private var allDownRunnable: Runnable? = null
+    @Volatile private var allDownRunnable: Runnable? = null
 
     // 防止 onDestroy 期间注册的网络回调还在尝试重连
     @Volatile var destroyed = false

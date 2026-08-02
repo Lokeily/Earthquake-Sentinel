@@ -149,8 +149,8 @@ object QuakeHistory {
             out.sortByDescending { r -> parseOtMs(r.originTime).let { if (it > 0L) it else r.timeMs } }
             out
         } catch (e: Exception) {
-            Log.w(TAG, "历史记录解析失败，已重置: ${e.message}")
-            AppConfig.historyJson = "[]"
+            Log.w(TAG, "历史记录解析失败，保留原始数据: ${e.message}")
+            // 不重置——保留旧 JSON，下次成功写入会自然覆盖损坏数据
             emptyList()
         }
     }

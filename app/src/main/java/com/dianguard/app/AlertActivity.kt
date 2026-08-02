@@ -31,8 +31,8 @@ class AlertActivity : AppCompatActivity() {
 
     private val TAG = "AlertActivity"
 
-    private var countDownTimer: CountDownTimer? = null
-    private var vibrator: Vibrator? = null
+    @Volatile private var countDownTimer: CountDownTimer? = null
+    @Volatile private var vibrator: Vibrator? = null
 
     // 优化 #6：记录倒计时起点，结束时比对“预期时长 vs 实际流逝”，用于精度分析
     private var countdownStartMs = 0L

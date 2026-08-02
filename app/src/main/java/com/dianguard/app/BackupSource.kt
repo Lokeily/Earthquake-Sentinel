@@ -79,6 +79,10 @@ class BackupSource(
 
     private val handler = Handler(Looper.getMainLooper())
     private var pollRunnable: Runnable? = null
+    /** 共享线程池，替代每次 new Thread（30s轮询，避免线程堆积） */
+    private val pollExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread(r, "Dianguard-BackupPoll").also { it.isDaemon = true }
+    }
 
     /** 已上报过的事件（key -> 首次上报时间），防止同一地震被反复提示 */
     private val seen = LinkedHashMap<String, Long>()
@@ -116,7 +120,7 @@ class BackupSource(
     // ===================== 轮询实现 =====================
 
     private fun pollAsync() {
-        Thread {
+        pollExecutor.execute {
             var hit = 0
             var okCount = 0
             // 先查 Wolfx HTTP（若只是 WS 层故障，这里能拿到真正的实时预警）
@@ -139,7 +143,7 @@ class BackupSource(
                 else -> "巡检中 · 暂无异常"
             }
             onStatus(status)
-        }.start()
+        }
     }
 
     /** 拉取 Wolfx HTTP 版 CENC 预警；返回是否命中新事件 */
