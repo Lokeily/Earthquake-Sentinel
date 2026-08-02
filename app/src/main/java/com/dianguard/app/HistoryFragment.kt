@@ -57,6 +57,14 @@ class HistoryFragment : Fragment() {
     /** 标记是否已完成首次抓取 */
     private var initialFetchDone = false
 
+    /** 接收历史变更广播（远震/小震提醒触发刷新） */
+    private val historyReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (!isAdded) return
+            rebuild()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -73,10 +81,20 @@ class HistoryFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         rebuild()
-        // 自动从 CENC + USGS 抓取近期已发生地震写入历史（带冷却防抖）
-        // 注意：show/hide 模式下所有 Fragment 的 onResume 都会触发，
-        // 但抓取只在用户切到本 Tab 时执行一次（冷却期内跳过）
         autoFetchHistory()
+        // 注册历史变更广播（远震/小震提醒触发刷新）
+        try {
+            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(requireContext())
+                .registerReceiver(historyReceiver, android.content.IntentFilter(EewService.ACTION_HISTORY_CHANGED))
+        } catch (_: Exception) { }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(requireContext())
+                .unregisterReceiver(historyReceiver)
+        } catch (_: Exception) { }
     }
 
     /** 自动从中国地震台网和 USGS 抓取近期地震记录 */
