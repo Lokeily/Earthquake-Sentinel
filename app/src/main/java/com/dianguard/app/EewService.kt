@@ -64,6 +64,7 @@ class EewService : Service() {
         const val DISTANT_NOTIFY_SUMMARY_ID = 999
 
         const val ACTION_ALERT_DISMISSED = "com.dianguard.app.ALERT_DISMISSED"
+        const val ACTION_HISTORY_CHANGED = "com.dianguard.app.HISTORY_CHANGED"
 
         const val EXTRA_STATUS = "status"
         const val EXTRA_EVENT_ID = "event_id"
