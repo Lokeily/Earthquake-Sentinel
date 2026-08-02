@@ -12,12 +12,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import androidx.core.app.ServiceCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -182,8 +184,11 @@ class EewService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        @Suppress("DEPRECATION")
-        startForeground(NOTIFY_ID, buildForegroundNotification("预警监听中…"))
+        ServiceCompat.startForeground(
+            this, NOTIFY_ID,
+            buildForegroundNotification("预警监听中…"),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        )
         if (connMgr.connections.isEmpty()) {
             connMgr.connectAll()
         } else {
@@ -261,6 +266,8 @@ class EewService : Service() {
             val since = System.currentTimeMillis() - alertMgr.lastDataReceivedMs
             if (since > DATA_STALE_MS && !alertMgr.dataStaleNotified) {
                 alertMgr.dataStaleNotified = true
+                // 网络中断降级提示：更新前台通知告知用户
+                updateForegroundNotify("网络异常，预警监听临时中断")
             }
         }
         postFreshness()
@@ -358,6 +365,14 @@ class EewService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
+    }
+
+    /** 更新前台通知文本（网络中断降级提示等） */
+    private fun updateForegroundNotify(text: String) {
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFY_ID, buildForegroundNotification(text))
+        } catch (_: Exception) { }
     }
 
     // ===================== WakeLock =====================
