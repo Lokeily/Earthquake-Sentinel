@@ -37,6 +37,7 @@ object AppUpdateChecker {
                 val client = HttpClient.instance
                 val req = Request.Builder().url(API)
                     .header("Accept", "application/vnd.github+json")
+                    .header("Cache-Control", "no-cache, no-store")
                     .build()
                 // 修复 #20：用 use{} 包裹，确保无论成功/失败都显式关闭 ResponseBody，避免连接泄漏
                 client.newCall(req).execute().use { response ->
