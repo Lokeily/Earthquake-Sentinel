@@ -90,8 +90,8 @@
     <string name="history_badge_backup">备用源速报</string>
     <string name="history_badge_logged">已记录</string>
 
-    <!-- 历史记录自动抓取提示（v1.1.x） -->
-    <string name="history_fetching">正在从中国地震台网和 USGS 抓取近期地震记录…</string>
+    <!-- 历史记录自动抓取提示 -->
+    <string name="history_fetching">正在从中国地震台网同步近期地震记录…</string>
     <string name="history_fetch_done">已从中国地震台网同步 %1$d 条近期地震记录</string>
     <string name="history_fetch_none">近期无可记录的新地震</string>
 
