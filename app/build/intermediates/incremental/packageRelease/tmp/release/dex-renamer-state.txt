@@ -1,0 +1,4 @@
+#Sun Aug 02 14:10:12 CST 2026
+base.0=C\:\\Users\\nsklr\\WorkBuddy\\2026-08-01-14-49-09\\Dianguard\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

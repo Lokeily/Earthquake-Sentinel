@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <bool name="light_status_bar">false</bool>
+    <color name="accent">#0A84FF</color>
+    <color name="alert_red">#FF453A</color>
+    <color name="bg_dark">#000000</color>
+    <color name="card">#0E0E10</color>
+    <color name="ios_blue">#0A84FF</color>
+    <color name="ios_blue_dark">#0A84FF</color>
+    <color name="ios_card_bg">#0E0E10</color>
+    <color name="ios_destructive">#FF453A</color>
+    <color name="ios_green">#30D158</color>
+    <color name="ios_grouped_bg">#000000</color>
+    <color name="ios_label">#E4E4E7</color>
+    <color name="ios_label_secondary">#8A8A8F</color>
+    <color name="ios_separator">#26262A</color>
+    <color name="level_blue">#0A84FF</color>
+    <color name="level_orange">#FF9F0A</color>
+    <color name="level_red">#FF453A</color>
+    <color name="level_yellow">#FFD60A</color>
+    <color name="primary">#0A84FF</color>
+    <color name="primary_dark">#0A84FF</color>
+    <color name="source_gray">#48484D</color>
+    <color name="source_orange">#FF9F0A</color>
+    <color name="text_primary">#E4E4E7</color>
+    <color name="text_secondary">#8A8A8F</color>
+</resources>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  主容器（v1.0.17 起）：上方 Fragment 内容区 + 下方自绘底部导航栏。
+
+  为什么自己画而不用 Material 的 BottomNavigationView：
+   1. 本工程主题是 AppCompat 系（Theme.AppCompat.DayNight），换成 MaterialComponents 主题
+      会让所有 Button 被自动膨胀成 MaterialButton，现有 android:background 自定义样式全部失效；
+   2. minSdk 21 的老手机上，少一层控件、少一套 ripple/elevation 计算就是实打实的省资源；
+   3. 三个固定 Tab 的选中态逻辑非常简单，手写完全可控，也便于深色模式配色统一。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/ios_grouped_bg">
+
+    <!-- Fragment 内容区：主页 / 预警历史 / 设置 -->
+    <FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- 顶边分隔线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="@color/ios_separator" />
+
+    <!-- 底部导航栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="58dp"
+        android:orientation="horizontal"
+        android:background="@color/ios_card_bg">
+
+        <!-- 主页 -->
+        <LinearLayout
+            android:id="@+id/tab_home"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackground">
+
+            <ImageView
+                android:id="@+id/tab_home_icon"
+                android:layout_width="23dp"
+                android:layout_height="23dp"
+                android:src="@drawable/ic_tab_home"
+                android:contentDescription="@string/tab_home" />
+
+            <TextView
+                android:id="@+id/tab_home_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/tab_home"
+                android:textSize="11sp"
+                android:textColor="@color/ios_label_secondary" />
+        </LinearLayout>
+
+        <!-- 预警历史 -->
+        <LinearLayout
+            android:id="@+id/tab_history"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackground">
+
+            <ImageView
+                android:id="@+id/tab_history_icon"
+                android:layout_width="23dp"
+                android:layout_height="23dp"
+                android:src="@drawable/ic_tab_history"
+                android:contentDescription="@string/tab_history" />
+
+            <TextView
+                android:id="@+id/tab_history_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/tab_history"
+                android:textSize="11sp"
+                android:textColor="@color/ios_label_secondary" />
+        </LinearLayout>
+
+        <!-- 设置 -->
+        <LinearLayout
+            android:id="@+id/tab_settings"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackground">
+
+            <ImageView
+                android:id="@+id/tab_settings_icon"
+                android:layout_width="23dp"
+                android:layout_height="23dp"
+                android:src="@drawable/ic_tab_settings"
+                android:contentDescription="@string/tab_settings" />
+
+            <TextView
+                android:id="@+id/tab_settings_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/tab_settings"
+                android:textSize="11sp"
+                android:textColor="@color/ios_label_secondary" />
+        </LinearLayout>
+
+    </LinearLayout>
+</LinearLayout>

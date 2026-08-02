@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  深色模式配色（OLED 省电 + 防烧屏）。
+
+  本应用的典型部署方式是「一台旧手机插着电、屏幕常亮、常年摆在桌上当地震哨兵」，
+  这正是 OLED 烧屏最容易发生的场景，所以配色是按硬件特性反推出来的：
+
+  1. 背景纯黑 #000000
+     OLED 每个像素自发光，黑色 = 像素完全断电。整屏纯黑相比深灰 #121212
+     可再省一截功耗，且完全不存在背景层烧屏的可能。
+
+  2. 卡片只比背景亮一档 #0E0E10
+     刚好能看出层级，又不会形成大面积持续发光区域。
+
+  3. 正文文字 #E4E4E7 而非纯白 #FFFFFF
+     纯白是烧屏的主要元凶（长期高亮的静态文字会留下残影）。降到 ~90% 亮度后
+     可读性几乎无损，静态像素的亮度峰值却明显下降，夜间观看也不刺眼。
+
+  4. 强调色统一改用深色模式专用色值（#0A84FF / #FF453A / #30D158 / #FF9F0A）
+     这些是在深色底上观感与对比度更合适的一组，浅色模式那套在纯黑上会过于刺眼。
+-->
+<resources>
+    <!-- iOS 深色风格配色 -->
+    <color name="ios_blue">#0A84FF</color>
+    <color name="ios_blue_dark">#0A84FF</color>
+    <color name="ios_grouped_bg">#000000</color>
+    <color name="ios_card_bg">#0E0E10</color>
+    <color name="ios_separator">#26262A</color>
+    <color name="ios_label">#E4E4E7</color>
+    <color name="ios_label_secondary">#8A8A8F</color>
+    <color name="ios_destructive">#FF453A</color>
+    <color name="alert_red">#FF453A</color>
+    <color name="ios_green">#30D158</color>
+    <color name="source_gray">#48484D</color>
+    <color name="source_orange">#FF9F0A</color>
+
+    <!-- 四级预警配色（深色底适配版） -->
+    <color name="level_red">#FF453A</color>
+    <color name="level_orange">#FF9F0A</color>
+    <color name="level_yellow">#FFD60A</color>
+    <color name="level_blue">#0A84FF</color>
+
+    <!-- 兼容旧引用 -->
+    <color name="primary">#0A84FF</color>
+    <color name="primary_dark">#0A84FF</color>
+    <color name="accent">#0A84FF</color>
+    <color name="bg_dark">#000000</color>
+    <color name="card">#0E0E10</color>
+    <color name="text_primary">#E4E4E7</color>
+    <color name="text_secondary">#8A8A8F</color>
+</resources>

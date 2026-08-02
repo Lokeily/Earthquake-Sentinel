@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  主页（v1.0.17）：自绘底部导航选中后的内容区。
+  包含：当前状态 + 开启预警监听按钮 + 数据来源板块（动态行 + 备用探测源行 + 灰色更新小字）+ 保活入口。
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ios_grouped_bg"
+    android:fillViewport="true"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="32dp">
+
+        <!-- 当前状态卡片 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/status_label"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/status_dot"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/bg_src_dot"
+                    android:backgroundTint="@color/source_gray" />
+
+                <TextView
+                    android:id="@+id/tv_status"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/status_guard"
+                    android:textColor="@color/ios_label"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 开启预警监听按钮（高亮主操作） -->
+        <Button
+            android:id="@+id/btn_enable"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:background="@drawable/bg_button_primary"
+            android:text="@string/home_btn_enable"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 数据来源卡片 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tv_sources_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sources_title"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <!-- 开启后：各路数据源实时状态行（按 EEW_SOURCES 动态生成） -->
+            <LinearLayout
+                android:id="@+id/sources_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical" />
+
+            <!-- 备用探测源（独立兜底，仅在主链路全断后激活） -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="9dp">
+
+                <View
+                    android:id="@+id/backup_dot"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/bg_src_dot"
+                    android:backgroundTint="@color/source_gray" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/source_backup_name"
+                    android:textColor="@color/ios_label"
+                    android:textSize="14sp"
+                    android:singleLine="true"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tv_backup_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/status_down"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- 关闭时：引导文案 -->
+            <TextView
+                android:id="@+id/tv_sources_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/sources_hint_disabled"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+
+            <!-- 灰色小字：数据更新于多久前（正常信息，永不标红） -->
+            <TextView
+                android:id="@+id/tv_last_data"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/freshness_init"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 保活入口卡片（老手机必看） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_keepalive_title"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_battery"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_button_secondary"
+                android:text="@string/btn_battery"
+                android:textColor="@color/ios_blue"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_guide"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_button_secondary"
+                android:text="@string/btn_guide"
+                android:textColor="@color/ios_blue"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/home_hint"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+</ScrollView>
