@@ -94,6 +94,8 @@ class HistoryFragment : Fragment() {
         tvFetchHint.visibility = View.VISIBLE
         tvFetchHint.text = getString(R.string.history_fetching)
 
+        // 传递 Context 给 HistoryFetcher（用于 Geocoder 逆地理编码 USGS 记录）
+        HistoryFetcher.appContext = requireContext().applicationContext
         HistoryFetcher.fetchAndRecord { added ->
             // 再次守卫：回调时 Fragment 可能已 detach
             if (!isAdded || !::tvFetchHint.isInitialized) return@fetchAndRecord

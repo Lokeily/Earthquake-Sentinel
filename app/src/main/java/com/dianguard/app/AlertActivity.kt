@@ -42,6 +42,7 @@ class AlertActivity : AppCompatActivity() {
     private lateinit var tvMag: TextView
     private lateinit var tvDetail: TextView
     private lateinit var tvLevel: TextView
+    private lateinit var tvDamage: TextView
     private lateinit var btnDismiss: Button
     private lateinit var tvTitle: TextView
     private lateinit var tvUnit: TextView
@@ -103,6 +104,7 @@ class AlertActivity : AppCompatActivity() {
         tvMag = findViewById(R.id.tv_mag)
         tvDetail = findViewById(R.id.tv_detail)
         tvLevel = findViewById(R.id.tv_level)
+        tvDamage = findViewById(R.id.tv_damage)
         btnDismiss = findViewById(R.id.btn_dismiss)
         tvTitle = findViewById(R.id.tv_title)
         tvUnit = findViewById(R.id.tv_unit)
@@ -120,6 +122,8 @@ class AlertActivity : AppCompatActivity() {
         tvLevel.setTextColor(levelColor(currentLevel))
         tvLevel.visibility =
             if (currentLevel == WarningLevel.NONE) android.view.View.GONE else android.view.View.VISIBLE
+        tvDamage.text = damageDescription(currentLevel, intensityStr)
+        tvDamage.setTextColor(levelColor(currentLevel))
         updateDetail(intent)
 
         // 背景板 / 状态栏 / 文字配色严格跟随预警等级
@@ -156,6 +160,15 @@ class AlertActivity : AppCompatActivity() {
         WarningLevel.YELLOW -> ContextCompat.getColor(this, R.color.level_yellow)
         WarningLevel.BLUE -> ContextCompat.getColor(this, R.color.level_blue)
         WarningLevel.NONE -> ContextCompat.getColor(this, R.color.alert_red)
+    }
+
+    /** 四级预警的破坏程度描述（面向公众的警示语） */
+    private fun damageDescription(level: WarningLevel, intensity: String): String = when (level) {
+        WarningLevel.BLUE -> "预估烈度${intensity}° — 室内多数人有感，悬挂物轻微摆动，一般不会造成破坏"
+        WarningLevel.YELLOW -> "预估烈度${intensity}° — 多数人惊慌失措，家具移动，部分房屋可能出现轻微破坏"
+        WarningLevel.ORANGE -> "预估烈度${intensity}° — 站立困难，房屋可能发生破坏，请立即采取防护措施！"
+        WarningLevel.RED -> "预估烈度${intensity}° — 行动困难，房屋可能严重破坏或倒塌，请立即紧急避险！！"
+        WarningLevel.NONE -> ""
     }
 
     /**

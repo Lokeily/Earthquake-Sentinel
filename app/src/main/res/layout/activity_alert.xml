@@ -84,6 +84,17 @@
             android:textSize="14sp"
             android:layout_marginTop="8dp" />
 
+        <!-- 破坏程度描述（按预警等级） -->
+        <TextView
+            android:id="@+id/tv_damage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="10dp"
+            android:gravity="center" />
     </LinearLayout>
 
     <LinearLayout

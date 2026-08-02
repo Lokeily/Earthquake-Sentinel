@@ -111,6 +111,9 @@ object HistoryFetcher {
         timeZone = TimeZone.getTimeZone("Asia/Shanghai")
     }
 
+    /** 应用 Context（供 Geocoder 使用，由 HistoryFragment 在 fetchAndRecord 前设置） */
+    @Volatile var appContext: android.content.Context? = null
+
     // ===================== 公开入口 =====================
 
     fun fetchAndRecord(callback: (addedCount: Int) -> Unit) {
@@ -246,14 +249,14 @@ object HistoryFetcher {
             val distKm = if (AppConfig.hasLocation)
                 haversineKm(AppConfig.homeLat, AppConfig.homeLon, lat, lon) else 0.0
 
-            // 英文地名→坐标转中文省份
+            // USGS 英文地名→逆地理编码转真实省市区县名
             val rawPlace = props.optString("place", "")
-            // CENC 数据已提供中文地名，USGS 英文地名不可靠（如"Simao"实际是普洱思茅）
-            // 仅用坐标映射到中文省份，不作英文城市名解析
-            val chinesePlace = if (rawPlace.isNotBlank() && rawPlace.contains(chineseCharRegex))
+            val chinesePlace = if (rawPlace.isNotBlank() && rawPlace.contains(chineseCharRegex)) {
                 rawPlace
-            else
-                coordToChineseProvince(lat, lon)
+            } else {
+                // 优先 Geocoder 逆地理编码，失败回退坐标→省份
+                geocodeLatLon(lat, lon) ?: coordToChineseProvince(lat, lon)
+            }
 
             recordIfNew(QuakeRecord(
                 key = quakeKey, timeMs = timeMs,
@@ -354,5 +357,23 @@ object HistoryFetcher {
             if (lat in r.latMin..r.latMax && lon in r.lonMin..r.lonMax) return name
         }
         return "%.1f°N %.1f°E".format(lat, lon)
+    }
+
+    /** Geocoder 逆地理编码 → 省市区县名，失败返回 null */
+    private fun geocodeLatLon(lat: Double, lon: Double): String? {
+        val ctx = appContext ?: return null
+        return try {
+            if (!android.location.Geocoder.isPresent()) return null
+            val geocoder = android.location.Geocoder(ctx, Locale.CHINA)
+            @Suppress("DEPRECATION")
+            val list = geocoder.getFromLocation(lat, lon, 1)
+            if (list.isNullOrEmpty()) return null
+            val a = list[0]
+            val parts = mutableListOf<String>()
+            a.adminArea?.let { if (it.isNotBlank()) parts.add(it) }
+            a.locality?.let { if (it.isNotBlank() && it != a.adminArea) parts.add(it) }
+            a.subLocality?.let { if (it.isNotBlank()) parts.add(it) }
+            if (parts.isEmpty()) null else parts.joinToString("")
+        } catch (_: Exception) { null }
     }
 }
