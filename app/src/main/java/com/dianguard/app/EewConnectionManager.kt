@@ -118,7 +118,7 @@ class EewConnectionManager(val service: EewService) {
             }
         }
         if (text != EewService.headlineState) {
-            EewService.headlineState = text
+            EewService.updateState { copy(headlineState = text) }
             service.postStatus(text)
         }
     }
@@ -149,7 +149,7 @@ class EewConnectionManager(val service: EewService) {
                 c.delay = 3_000L
                 c.failCount = 0L
             }
-            EewService.connectedSourceCount = connectedSources.size
+            EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
             patchSourceState(sourceId) { copy(connected = true, failCount = 0L) }
             if (service.alertMgr.dataStaleNotified) {
                 service.alertMgr.dataStaleNotified = false
@@ -175,7 +175,7 @@ class EewConnectionManager(val service: EewService) {
             }
             Log.w(EewService.TAG, "WebSocket 断开($sourceId): ${t.message}")
             connectedSources.remove(sourceId)
-            EewService.connectedSourceCount = connectedSources.size
+            EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
             cur.failCount++
             patchSourceState(sourceId) { copy(connected = false, failCount = cur.failCount) }
             if (cur.failCount == EewService.CONN_FAIL_WARN_THRESHOLD) {
@@ -196,7 +196,7 @@ class EewConnectionManager(val service: EewService) {
             }
             Log.i(EewService.TAG, "WebSocket 关闭($sourceId): $code $reason")
             connectedSources.remove(sourceId)
-            EewService.connectedSourceCount = connectedSources.size
+            EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
             patchSourceState(sourceId) { copy(connected = false) }
             cur.scheduleReconnect()
             refreshHeadline()
