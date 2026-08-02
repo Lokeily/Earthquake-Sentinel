@@ -11,6 +11,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -243,10 +244,10 @@ class AlertActivity : AppCompatActivity() {
                 tvCountdown.text = "0"
                 tvCountdown.setTextColor(themeTextColor)
                 tvPlace.text = "警报！请立即避险"
-                // 优化 #6：记录实际耗时，比对预期，便于后续精度分析
+                tvHint.text = "趴下、掩护、抓牢 · 远离玻璃窗与重物\n待震动停止后检查燃气阀门"
+                // 优化 #6：记录实际耗时
                 val actual = System.currentTimeMillis() - countdownStartMs
                 Log.d(TAG, "倒计时结束：预期=${totalMs}ms 实际=${actual}ms")
-                // 倒计时结束：停倒计时播报，第三段警报声循环播放
                 EewVoice.stopCountdown()
                 if (!alarmStarted) {
                     alarmStarted = true
@@ -280,14 +281,15 @@ class AlertActivity : AppCompatActivity() {
     private fun dismissAlert() {
         EewVoice.stopAll()
         countDownTimer?.cancel()
-        // 修复 #11：立即取消震动，避免用户点「我已安全」后震动仍持续
         try { vibrator?.cancel() } catch (_: Exception) { }
-        // 修复 #3：通知服务本地震告警已解除，清空 activeEventId/activeQuakeKey，
-        // 使同一地震的后续报能重新触发全屏告警，而不是只发一条无人接收的刷新广播。
         try {
             LocalBroadcastManager.getInstance(this)
                 .sendBroadcast(android.content.Intent(EewService.ACTION_ALERT_DISMISSED))
         } catch (_: Exception) { }
+        // 余震提醒：强震后大概率有余震
+        if (currentLevel == WarningLevel.ORANGE || currentLevel == WarningLevel.RED) {
+            Toast.makeText(this, "余震可能发生，请保持警惕！", Toast.LENGTH_LONG).show()
+        }
         finish()
     }
 
