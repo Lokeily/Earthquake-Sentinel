@@ -35,23 +35,30 @@ class TestAlarmActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.btn_full).setOnClickListener {
             EewVoice.stopAll()
-            // 优化 #9：不再写死 70km，而是以用户当前参考位置为基准，
-            // 取一个“正北约 70km”的模拟震中，使距离/ETA 与用户真实位置自洽。
             val homeLat = AppConfig.homeLat
             val homeLon = AppConfig.homeLon
-            val dKm = 70.0
-            val epiLat = homeLat + dKm / 111.0 // 纬度每度约 111km
+            // 模拟正北约 50km 的震中（确保 ETA 足够跑完三段式流程）
+            val dKm = 50.0
+            val epiLat = homeLat + dKm / 111.0
             val epiLon = homeLon
             val dist = haversineKm(homeLat, homeLon, epiLat, epiLon)
             val eta = AppConfig.estimateSWaveEtaSeconds(dist)
+            // 根据模拟震中坐标反查省份地名
+            val simPlace = if (AppConfig.locationName.isNotBlank())
+                "${AppConfig.locationName}正北约${dist.toInt()}km（模拟震中）"
+            else "参考位置正北约${dist.toInt()}km（模拟震中）"
+            // 模拟 M6.0 地震，烈度约 8°
+            val simMag = 6.0
+            val simIntensity = "8"
             val intent = Intent(this, AlertActivity::class.java).apply {
-                putExtra(EewService.EXTRA_EVENT_ID, "TEST-${System.currentTimeMillis()}")
-                putExtra(EewService.EXTRA_MAG, 6.5)
-                putExtra(EewService.EXTRA_PLACE, "测试震中（距您约 ${dist.toInt()}km）")
-                // 约 20 秒模拟：前 10 秒放第一段短语，后 10 秒语音倒计时 10→1，归零循环警报
+                // 与真实预警完全一致的 Intent FLAGS
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EewService.EXTRA_EVENT_ID, "SIM-${System.currentTimeMillis()}")
+                putExtra(EewService.EXTRA_MAG, simMag)
+                putExtra(EewService.EXTRA_PLACE, simPlace)
                 putExtra(EewService.EXTRA_DISTANCE, dist)
                 putExtra(EewService.EXTRA_ETA, eta)
-                putExtra(EewService.EXTRA_INTENSITY, "6")
+                putExtra(EewService.EXTRA_INTENSITY, simIntensity)
                 putExtra(EewService.EXTRA_DEPTH, 10.0)
                 putExtra(EewService.EXTRA_REPORT_NUM, 1)
             }

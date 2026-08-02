@@ -248,9 +248,12 @@ object HistoryFetcher {
 
             // 英文地名→坐标转中文省份
             val rawPlace = props.optString("place", "")
-            val chinesePlace = if (rawPlace.isNotBlank() && !rawPlace.contains(chineseCharRegex))
-                usgsPlaceToChinese(rawPlace, lat, lon)
-            else rawPlace
+            // CENC 数据已提供中文地名，USGS 英文地名不可靠（如"Simao"实际是普洱思茅）
+            // 仅用坐标映射到中文省份，不作英文城市名解析
+            val chinesePlace = if (rawPlace.isNotBlank() && rawPlace.contains(chineseCharRegex))
+                rawPlace
+            else
+                coordToChineseProvince(lat, lon)
 
             recordIfNew(QuakeRecord(
                 key = quakeKey, timeMs = timeMs,
@@ -351,44 +354,5 @@ object HistoryFetcher {
             if (lat in r.latMin..r.latMax && lon in r.lonMin..r.lonMax) return name
         }
         return "%.1f°N %.1f°E".format(lat, lon)
-    }
-
-    /**
-     * USGS 英文地名 → 中文可读格式。
-     * "54 km NE of Simao, China" → "云南 · 思茅东北54km"
-     * "120 km SSE of Lhasa, China" → "西藏 · 拉萨东南120km"
-     * "western Sichuan, China" → "四川西部"
-     */
-    private fun usgsPlaceToChinese(raw: String, lat: Double, lon: Double): String {
-        // 尝试解析 "X km DIR of CITY, REGION" 格式
-        val pattern = Regex("""^(\d+(?:\.\d+)?)\s*km\s+(\w+(?:\s+\w+)*)\s+of\s+(.+)$""")
-        val match = pattern.find(raw)
-        if (match != null) {
-            val dist = match.groupValues[1]
-            val dir = directionToChinese(match.groupValues[2])
-            val city = match.groupValues[3].split(",").first().trim()
-            val province = coordToChineseProvince(lat, lon)
-            // 如果 province 是坐标格式（未匹配到省份），只用城市名
-            val prefix = if (province.contains("°")) city else province
-            return "$prefix · ${city}${dir}${dist}km"
-        }
-        // "X km DIR of CITY" (无国家后缀)
-        val pattern2 = Regex("""^(\d+(?:\.\d+)?)\s*km\s+(\w+(?:\s+\w+)*)\s+of\s+(.+)$""")
-        val match2 = pattern2.find(raw) ?: return coordToChineseProvince(lat, lon)
-        val dist2 = match2.groupValues[1]
-        val dir2 = directionToChinese(match2.groupValues[2])
-        val city2 = match2.groupValues[3].split(",").first().trim()
-        val province2 = coordToChineseProvince(lat, lon)
-        val prefix2 = if (province2.contains("°")) city2 else province2
-        return "$prefix2 · ${city2}${dir2}${dist2}km"
-    }
-
-    /** 英文方位 → 中文 */
-    private fun directionToChinese(dir: String): String = when (dir.uppercase().trim()) {
-        "N" -> "北"; "NNE" -> "北北东"; "NE" -> "东北"; "ENE" -> "东北东"
-        "E" -> "东"; "ESE" -> "东南东"; "SE" -> "东南"; "SSE" -> "南南东"
-        "S" -> "南"; "SSW" -> "南南西"; "SW" -> "西南"; "WSW" -> "西南西"
-        "W" -> "西"; "WNW" -> "西北西"; "NW" -> "西北"; "NNW" -> "北北西"
-        else -> dir
     }
 }
