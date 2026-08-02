@@ -30,7 +30,7 @@ object HistoryFetcher {
     private const val CENC_CATALOG = "https://api.wolfx.jp/quake_cenc.json"
     private const val CENC_EEW = "https://api.wolfx.jp/cenc_eew.json"
 
-    private const val MAX_AGE_MS = 48 * 60 * 60 * 1000L
+    private const val MAX_AGE_MS = 15 * 24 * 60 * 60 * 1000L  // 15 天
 
     private val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
         Thread(r, "Dianguard-HistoryFetch").also { it.isDaemon = true }

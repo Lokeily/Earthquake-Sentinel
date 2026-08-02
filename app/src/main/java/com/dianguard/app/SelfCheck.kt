@@ -77,26 +77,8 @@ object SelfCheck {
             )
         )
 
-        // 5. 预警监听是否已开启
-        val svcOk = AppConfig.serviceEnabled
-        list.add(
-            CheckItem(
-                "预警监听",
-                svcOk,
-                if (svcOk) "正在后台监听" else "未开启，不会接收预警"
-            )
-        )
-
-        // 6. 数据源连接（仅服务开启时有意义）
-        if (svcOk) {
-            val n = EewService.connectedSourceCount
-            list.add(CheckItem("数据源连接", n > 0, "已连接 $n/${EEW_SOURCES.size} 个官方预警源"))
-        } else {
-            list.add(CheckItem("数据源连接", false, "服务未开启，无法连接官方预警源"))
-        }
-
-        // 7. 后台保活锁（WakeLock）
-        if (svcOk) {
+        // 5. 后台保活锁（WakeLock）
+        if (AppConfig.serviceEnabled) {
             list.add(
                 CheckItem(
                     "后台保活",
@@ -104,11 +86,9 @@ object SelfCheck {
                     if (EewService.wakeLockHeld) "WakeLock 持有中" else "后台保活未生效"
                 )
             )
-        } else {
-            list.add(CheckItem("后台保活", false, "服务未开启"))
         }
 
-        // 8. 电池优化豁免（防止系统杀后台）
+        // 6. 电池优化豁免（防止系统杀后台）
         val battOk = pm.isIgnoringBatteryOptimizations(context.packageName)
         list.add(
             CheckItem(

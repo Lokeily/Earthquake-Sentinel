@@ -282,12 +282,23 @@ class HomeFragment : Fragment() {
         }
     }
 
-    /** 播放服务状态提示音（自动释放 MediaPlayer） */
+    /** 播放服务状态提示音（通过 URI 加载，兼容所有 MP3 编码格式） */
     private fun playServiceAudio(resId: Int) {
         try {
-            val mp = android.media.MediaPlayer.create(requireContext(), resId)
-            mp?.setOnCompletionListener { it.release() }
-            mp?.start()
+            val ctx = requireContext().applicationContext
+            val uri = Uri.parse("android.resource://${ctx.packageName}/$resId")
+            val mp = android.media.MediaPlayer()
+            mp.setDataSource(ctx, uri)
+            mp.setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            mp.setOnPreparedListener { it.start() }
+            mp.setOnCompletionListener { it.release() }
+            mp.setOnErrorListener { _, _, _ -> try { it.release() } catch (_: Exception) {}; true }
+            mp.prepareAsync()
         } catch (_: Exception) { }
     }
 
