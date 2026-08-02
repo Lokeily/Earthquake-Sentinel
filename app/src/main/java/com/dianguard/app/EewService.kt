@@ -88,27 +88,25 @@ class EewService : Service() {
         private const val WAKELOCK_TIMEOUT_MS = 6 * 60 * 60 * 1000L
         private const val WAKELOCK_REFRESH_INTERVAL_MS = 5 * 60 * 60 * 1000L
 
-        // ===== 自检用只读状态 =====
-        @Volatile var connectedSourceCount: Int = 0
-            internal set
-        @Volatile var wakeLockHeld: Boolean = false
-            internal set
-        @Volatile var lastStatusText: String = "监听未开启"
-            internal set
-        @Volatile var headlineState: String = "监听未开启"
+        // ===== 服务全局状态（v1.2.0 集中管理） =====
+        @Volatile var state: ServiceState = ServiceState()
             internal set
 
-        // ===== 数据源状态快照 =====
-        @Volatile var sourceStatuses: List<SourceUiState> = EEW_SOURCES.map {
-            SourceUiState(it.id, it.name, false, 0L, 0L)
+        private val stateLock = Any()
+
+        /** 原子更新状态（线程安全） */
+        internal fun updateState(transform: ServiceState.() -> ServiceState) {
+            synchronized(stateLock) { state = state.transform() }
         }
-            internal set
 
-        // ===== 备用探测源状态 =====
-        @Volatile var backupActive: Boolean = false
-            internal set
-        @Volatile var backupNote: String = "待命中"
-            internal set
+        // 向后兼容的快捷访问器（避免大范围修改现有代码）
+        val connectedSourceCount: Int get() = state.connectedSourceCount
+        val wakeLockHeld: Boolean get() = state.wakeLockHeld
+        val lastStatusText: String get() = state.lastStatusText
+        val headlineState: String get() = state.headlineState
+        val sourceStatuses: List<SourceUiState> get() = state.sourceStatuses
+        val backupActive: Boolean get() = state.backupActive
+        val backupNote: String get() = state.backupNote
 
         // ===== 源状态内部管理 =====
         private val sourceStateLock = Any()
@@ -121,7 +119,8 @@ class EewService : Service() {
             synchronized(sourceStateLock) {
                 val cur = _sourceStates[id] ?: return
                 _sourceStates[id] = cur.patch()
-                sourceStatuses = _sourceStates.values.toList()
+                val snap = _sourceStates.values.toList()
+                updateState { copy(sourceStatuses = snap) }
             }
         }
 
@@ -130,7 +129,8 @@ class EewService : Service() {
             synchronized(sourceStateLock) {
                 _sourceStates.clear()
                 EEW_SOURCES.forEach { _sourceStates[it.id] = SourceUiState(it.id, it.name, false, 0L, 0L) }
-                sourceStatuses = _sourceStates.values.toList()
+                val snap = _sourceStates.values.toList()
+                updateState { copy(sourceStatuses = snap) }
             }
         }
     }
@@ -207,10 +207,7 @@ class EewService : Service() {
         stopWakeLockRefresh()
         stopDedupCleanup()
         stopFreshnessMonitor()
-        connectedSourceCount = 0
-        wakeLockHeld = false
-        lastStatusText = "监听未开启"
-        headlineState = "监听未开启"
+        updateState { ServiceState() }  // 重置全部状态
         resetSourceStates()
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(alertDismissedReceiver)
@@ -326,7 +323,7 @@ class EewService : Service() {
     // ===================== 通知 / 广播 =====================
 
     internal fun postStatus(status: String) {
-        lastStatusText = status
+        updateState { copy(lastStatusText = status) }
         val i = Intent(ACTION_STATUS).apply { putExtra(EXTRA_STATUS, status) }
         LocalBroadcastManager.getInstance(this).sendBroadcast(i)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -382,7 +379,7 @@ class EewService : Service() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Dianguard:EewService")
         wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
-        wakeLockHeld = (wakeLock?.isHeld == true)
+        EewService.updateState { copy(wakeLockHeld = (wakeLock?.isHeld == true)) }
     }
 
     private fun startWakeLockRefresh() {
@@ -392,7 +389,7 @@ class EewService : Service() {
                 wakeLock?.let {
                     if (!it.isHeld) {
                         it.acquire(WAKELOCK_TIMEOUT_MS)
-                        wakeLockHeld = it.isHeld
+                        updateState { copy(wakeLockHeld = it.isHeld) }
                     }
                 }
                 mainHandler.postDelayed(this, WAKELOCK_REFRESH_INTERVAL_MS)
@@ -409,6 +406,6 @@ class EewService : Service() {
     private fun releaseWakeLock() {
         try { wakeLock?.release() } catch (_: Exception) { }
         wakeLock = null
-        wakeLockHeld = false
+        updateState { copy(wakeLockHeld = false) }
     }
 }
