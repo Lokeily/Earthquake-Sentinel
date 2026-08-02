@@ -62,13 +62,16 @@ android {
         jvmTarget = "17"
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     buildFeatures {
         viewBinding = true
         buildConfig = true
     }
 
     lint {
-        // 离线构建无法拉取 lint-gradle，关闭 release 的阻断式 lint，仅影响本地的签名构建校验
         checkReleaseBuilds = false
         abortOnError = false
     }
@@ -80,6 +83,8 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
-    // WebSocket / HTTP 客户端，用于订阅震前预警（EEW）数据流
+    // WebSocket / HTTP 客户端
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // 单元测试
+    testImplementation("junit:junit:4.13.2")
 }
