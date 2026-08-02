@@ -254,10 +254,10 @@ class HomeFragment : Fragment() {
         if (AppConfig.serviceEnabled) {
             requireContext().stopService(Intent(requireContext(), EewService::class.java))
             AppConfig.serviceEnabled = false
+            // 立即更新头条状态（stopService 是异步的，onDestroy 中的重置可能延迟）
+            EewService.headlineState = "监听未开启"
             Toast.makeText(requireContext(), "已停止预警监听", Toast.LENGTH_SHORT).show()
         } else {
-            // v1.1.0：首次开启预警监听前必须先阅读并同意免责声明，否则无法启动服务。
-            // 这样既符合法律法规对"用户主动确认"的要求，也让用户在上线前就清楚责任边界。
             if (!AppConfig.disclaimerAccepted) {
                 showDisclaimerBeforeEnable()
                 return

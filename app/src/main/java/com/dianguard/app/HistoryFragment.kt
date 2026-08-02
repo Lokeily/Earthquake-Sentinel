@@ -141,8 +141,18 @@ class HistoryFragment : Fragment() {
             val src = if (r.sourceName.isBlank()) "" else " · ${r.sourceName}"
             meta.text = "$timeStr$intensity$dist$src"
 
-            // 右侧：震级大字
-            magnitude.text = if (r.magnitude > 0) "M%.1f".format(r.magnitude) else "?"
+            // 右侧：震级圆圈（背景色按级别：蓝/黄/橙/红）
+            val mag = r.magnitude
+            magnitude.text = if (mag > 0) "M%.1f".format(mag) else "?"
+            val magColor = when {
+                mag >= 7.0 -> R.color.level_red
+                mag >= 6.0 -> R.color.level_orange
+                mag >= 5.0 -> R.color.level_yellow
+                mag >= 4.0 -> R.color.level_blue
+                else -> R.color.ios_label_secondary
+            }
+            magnitude.backgroundTintList = ContextCompat.getColorStateList(requireContext(), magColor)
+            magnitude.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
 
             // 右侧下方：徽标
             when {
