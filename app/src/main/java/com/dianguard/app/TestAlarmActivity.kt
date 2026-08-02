@@ -37,32 +37,37 @@ class TestAlarmActivity : AppCompatActivity() {
             EewVoice.stopAll()
             val homeLat = AppConfig.homeLat
             val homeLon = AppConfig.homeLon
-            // 模拟正北约 50km 的震中（确保 ETA 足够跑完三段式流程）
             val dKm = 50.0
             val epiLat = homeLat + dKm / 111.0
             val epiLon = homeLon
             val dist = haversineKm(homeLat, homeLon, epiLat, epiLon)
             val eta = AppConfig.estimateSWaveEtaSeconds(dist)
-            // 根据模拟震中坐标反查省份地名
-            val simPlace = if (AppConfig.locationName.isNotBlank())
-                "${AppConfig.locationName}正北约${dist.toInt()}km（模拟震中）"
-            else "参考位置正北约${dist.toInt()}km（模拟震中）"
-            // 模拟 M6.0 地震，烈度约 8°
-            val simMag = 6.0
-            val simIntensity = "8"
-            val intent = Intent(this, AlertActivity::class.java).apply {
-                // 与真实预警完全一致的 Intent FLAGS
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(EewService.EXTRA_EVENT_ID, "SIM-${System.currentTimeMillis()}")
-                putExtra(EewService.EXTRA_MAG, simMag)
-                putExtra(EewService.EXTRA_PLACE, simPlace)
-                putExtra(EewService.EXTRA_DISTANCE, dist)
-                putExtra(EewService.EXTRA_ETA, eta)
-                putExtra(EewService.EXTRA_INTENSITY, simIntensity)
-                putExtra(EewService.EXTRA_DEPTH, 10.0)
-                putExtra(EewService.EXTRA_REPORT_NUM, 1)
-            }
-            startActivity(intent)
+
+            // 逆地理编码：把模拟震中坐标转成真实省市区县名
+            Toast.makeText(this, "正在定位模拟震中…", Toast.LENGTH_SHORT).show()
+            Thread {
+                val geoName = LocationHelper.geocode(this@TestAlarmActivity, epiLat, epiLon)
+                val simPlace = if (!geoName.isNullOrBlank()) {
+                    "$geoName（模拟震中）"
+                } else {
+                    val fallback = AppConfig.locationName.ifBlank { "参考位置" }
+                    "${fallback}正北约${dist.toInt()}km（模拟震中）"
+                }
+                val simMag = 6.0
+                val simIntensity = "8"
+                val intent = Intent(this@TestAlarmActivity, AlertActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra(EewService.EXTRA_EVENT_ID, "SIM-${System.currentTimeMillis()}")
+                    putExtra(EewService.EXTRA_MAG, simMag)
+                    putExtra(EewService.EXTRA_PLACE, simPlace)
+                    putExtra(EewService.EXTRA_DISTANCE, dist)
+                    putExtra(EewService.EXTRA_ETA, eta)
+                    putExtra(EewService.EXTRA_INTENSITY, simIntensity)
+                    putExtra(EewService.EXTRA_DEPTH, 10.0)
+                    putExtra(EewService.EXTRA_REPORT_NUM, 1)
+                }
+                startActivity(intent)
+            }.start()
         }
     }
 
