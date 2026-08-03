@@ -73,7 +73,7 @@ android {
 
     lint {
         checkReleaseBuilds = false
-        abortOnError = false
+        abortOnError = true
     }
 }
 
@@ -87,4 +87,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // 单元测试
     testImplementation("junit:junit:4.13.2")
+    // 真实 org.json 实现：覆盖 android.jar 桩，使 parseEew 单元测试能真正解析报文
+    testImplementation("org.json:json:20231013")
 }

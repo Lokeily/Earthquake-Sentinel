@@ -87,7 +87,7 @@ class EewService : Service() {
 
         // ===== WakeLock =====
         private const val WAKELOCK_TIMEOUT_MS = 6 * 60 * 60 * 1000L
-        private const val WAKELOCK_REFRESH_INTERVAL_MS = 5 * 60 * 60 * 1000L
+        private const val WAKELOCK_REFRESH_INTERVAL_MS = 4 * 60 * 60 * 1000L
 
         // ===== 服务全局状态（v1.2.0 集中管理） =====
         @Volatile var state: ServiceState = ServiceState()
@@ -153,8 +153,9 @@ class EewService : Service() {
     private var freshnessRunnable: Runnable? = null
 
     private val FRESHNESS_CHECK_INTERVAL_MS = 30_000L
-    private val DATA_STALE_MS = 5 * 60 * 1000L
     private val LOC_MOVE_SKIP_METERS = 200.0
+    // 是否已至少成功连接过一次；用于区分“启动尚未连上”与“运行中断连”
+    private var everConnected = false
 
     private val alertDismissedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -185,11 +186,20 @@ class EewService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        ServiceCompat.startForeground(
-            this, NOTIFY_ID,
-            buildForegroundNotification("预警监听中…"),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-        )
+        try {
+            ServiceCompat.startForeground(
+                this, NOTIFY_ID,
+                buildForegroundNotification("预警监听中…"),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } catch (e: Exception) {
+            // Android 14+ 若缺少对应前台服务类型声明/权限或调用时机不当会抛异常；
+            // 此时无法合规常驻，主动停止自启，避免崩溃与反复拉起。
+            Log.e(TAG, "启动前台服务失败（可能缺少前台服务类型声明/权限），停止自启", e)
+            AppConfig.serviceEnabled = false
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (connMgr.connections.isEmpty()) {
             connMgr.connectAll()
         } else {
@@ -222,7 +232,10 @@ class EewService : Service() {
     }
 
     override fun onTimeout(startId: Int) {
-        // Android 14+ 前台服务超时处理
+        // Android 14+ 前台服务超时处理（dataSync 类服务若未及时转入前台会触发）；
+        // 常驻监听服务超时即主动停止自身，避免 ANR/崩溃（targetSdk 升至 35 前必须处理）。
+        Log.w(TAG, "前台服务超时（onTimeout），主动停止自身")
+        stopSelf()
     }
 
     // ===================== 周期任务 =====================
@@ -260,13 +273,17 @@ class EewService : Service() {
     }
 
     private fun checkDataFreshness() {
-        if (alertMgr.lastDataReceivedMs != 0L) {
-            val since = System.currentTimeMillis() - alertMgr.lastDataReceivedMs
-            if (since > DATA_STALE_MS && !alertMgr.dataStaleNotified) {
-                alertMgr.dataStaleNotified = true
-                // 网络中断降级提示：更新前台通知告知用户
-                updateForegroundNotify("网络异常，预警监听临时中断")
-            }
+        // 以“是否有源处于连接状态”判定新鲜度，而非“是否收到过地震报文”——
+        // 地震报文天然稀疏，平静期不应误报“网络异常”。
+        val connected = EewService.connectedSourceCount > 0
+        if (connected) everConnected = true
+        if (!connected && everConnected && !alertMgr.dataStaleNotified) {
+            alertMgr.dataStaleNotified = true
+            updateForegroundNotify("网络异常，预警监听临时中断")
+        } else if (connected && alertMgr.dataStaleNotified) {
+            // 恢复：连接已恢复，强刷状态机与常驻通知（force 绕过相等性检查）
+            alertMgr.dataStaleNotified = false
+            connMgr.refreshHeadline(force = true)
         }
         postFreshness()
     }
@@ -388,10 +405,11 @@ class EewService : Service() {
         wakeLockRefreshRunnable = object : Runnable {
             override fun run() {
                 wakeLock?.let {
-                    if (!it.isHeld) {
-                        it.acquire(WAKELOCK_TIMEOUT_MS)
-                        updateState { copy(wakeLockHeld = it.isHeld) }
-                    }
+                    // 无条件续期：对已持有的锁调用 acquire(timeout) 属重入，会刷新到期时间，
+                    // 避免“仅未持有时才续期”造成的死窗（锁在两次判定之间已过期却不再续，
+                    // 导致后台被系统回收、预警链路中断）。
+                    it.acquire(WAKELOCK_TIMEOUT_MS)
+                    updateState { copy(wakeLockHeld = it.isHeld) }
                 }
                 mainHandler.postDelayed(this, WAKELOCK_REFRESH_INTERVAL_MS)
             }

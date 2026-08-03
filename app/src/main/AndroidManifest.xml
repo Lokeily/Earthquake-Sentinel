@@ -63,7 +63,8 @@
             android:theme="@style/Theme.Dianguard.Alert"
             android:showOnLockScreen="true"
             android:turnScreenOn="true"
-            android:launchMode="singleTask" />
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <!-- 厂商保活（自启动/电池白名单）引导页 -->
         <activity

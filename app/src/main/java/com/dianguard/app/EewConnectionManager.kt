@@ -94,6 +94,7 @@ class EewConnectionManager(val service: EewService) {
         destroyed = true
         cancelAllDownCheck()
         for (conn in connections.values) {
+            conn.cancelPending()
             try { conn.ws?.cancel() } catch (_: Exception) { }
         }
         connections.clear()
@@ -101,7 +102,7 @@ class EewConnectionManager(val service: EewService) {
     }
 
     /** 重建头条状态并广播给主页/前台通知 */
-    fun refreshHeadline() {
+    fun refreshHeadline(force: Boolean = false) {
         val n = connectedSources.size
         val text = if (n > 0) {
             lastAnyConnectedMs = System.currentTimeMillis()
@@ -117,7 +118,7 @@ class EewConnectionManager(val service: EewService) {
                 service.getString(R.string.status_down)
             }
         }
-        if (text != EewService.headlineState) {
+        if (force || text != EewService.headlineState) {
             EewService.updateState { copy(headlineState = text) }
             service.postStatus(text)
         }
@@ -129,6 +130,8 @@ class EewConnectionManager(val service: EewService) {
         var ws: WebSocket? = null
         var delay = 3_000L
         var failCount = 0L
+        // 待执行的重连任务；destroy() 时据此撤销，避免已销毁后仍被 postDelayed 拉起新连接（泄漏）
+        var pendingReconnect: Runnable? = null
 
         fun connect() {
             val request = Request.Builder().url(source.wsUrl).build()
@@ -136,16 +139,30 @@ class EewConnectionManager(val service: EewService) {
         }
 
         fun scheduleReconnect() {
-            service.mainHandler.postDelayed({ connect() }, delay)
+            cancelPending()
+            val r = Runnable { connect() }
+            pendingReconnect = r
+            service.mainHandler.postDelayed(r, delay)
             delay = (delay * 2).coerceAtMost(maxReconnectDelayMs)
+        }
+
+        fun cancelPending() {
+            pendingReconnect?.let { service.mainHandler.removeCallbacks(it) }
+            pendingReconnect = null
         }
     }
 
     private fun makeListener(sourceId: String) = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
+            // 防守：服务已销毁，连接成功也应立即关闭，并撤销可能残留的重连任务
+            if (destroyed) {
+                try { webSocket.cancel() } catch (_: Exception) { }
+                return
+            }
             connectedSources.add(sourceId)
             val c = connections[sourceId]
             if (c != null) {
+                c.cancelPending()
                 c.delay = 3_000L
                 c.failCount = 0L
             }
@@ -158,6 +175,9 @@ class EewConnectionManager(val service: EewService) {
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
+            // 任何报文（含心跳等非 EEW）都视为“链路活跃”，刷新新鲜度与源状态
+            service.alertMgr.lastDataReceivedMs = System.currentTimeMillis()
+            EewService.patchSourceState(sourceId) { copy(lastDataMs = System.currentTimeMillis()) }
             try {
                 service.alertMgr.handleRaw(text, sourceId)
             } catch (e: Exception) {

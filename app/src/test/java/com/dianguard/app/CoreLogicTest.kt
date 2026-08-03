@@ -66,10 +66,10 @@ class CoreLogicTest {
     }
 
     @Test fun quakeKeyRobustToRounding() {
-        // 同一震中, 经纬度微小差异应在舍入后得到相同 key
+        // 同一震中, 经纬度微小差异应在舍入后得到相同 key（同一地震的发震时刻应一致）
         val e1 = Eew("ev1", "ev1", 1, "2026-08-02 15:30:00",
             "云南", 22.8001, 101.0001, 5.2, 10.0, "6")
-        val e2 = Eew("ev2", "ev2", 2, "2026-08-02 15:30:02",
+        val e2 = Eew("ev2", "ev2", 2, "2026-08-02 15:30:00",
             "云南", 22.8002, 101.0002, 5.2, 10.0, "6")
         assertEquals(makeQuakeKey(e1), makeQuakeKey(e2))
     }
@@ -132,10 +132,67 @@ class CoreLogicTest {
     @Test fun warningLevelRedStrong() = assertEquals(WarningLevel.RED, warningLevel(8.0))
     @Test fun warningLevelNone() = assertEquals(WarningLevel.NONE, warningLevel(0.0))
 
+    // ===================== warningLevelByIntensity（用户所在地烈度） =====================
+
+    @Test fun warningLevelByIntensityNone() = assertEquals(WarningLevel.NONE, warningLevelByIntensity(1.5))
+    @Test fun warningLevelByIntensityBlue() = assertEquals(WarningLevel.BLUE, warningLevelByIntensity(2.0))
+    @Test fun warningLevelByIntensityBlueUpper() = assertEquals(WarningLevel.BLUE, warningLevelByIntensity(3.9))
+    @Test fun warningLevelByIntensityYellow() = assertEquals(WarningLevel.YELLOW, warningLevelByIntensity(4.0))
+    @Test fun warningLevelByIntensityYellowUpper() = assertEquals(WarningLevel.YELLOW, warningLevelByIntensity(5.9))
+    @Test fun warningLevelByIntensityOrange() = assertEquals(WarningLevel.ORANGE, warningLevelByIntensity(6.0))
+    @Test fun warningLevelByIntensityOrangeUpper() = assertEquals(WarningLevel.ORANGE, warningLevelByIntensity(7.9))
+    @Test fun warningLevelByIntensityRed() = assertEquals(WarningLevel.RED, warningLevelByIntensity(8.0))
+
     // ===================== estimateIntensityFromMagnitude =====================
+    // 文档约定：近震中烈度 ≈ 震级（兜底估算，非精确烈度）
 
     @Test fun estIntensityM4() = assertEquals(4.0, estimateIntensityFromMagnitude(4.0), 0.1)
-    @Test fun estIntensityM5() = assertEquals(6.0, estimateIntensityFromMagnitude(5.0), 0.1)
-    @Test fun estIntensityM7() = assertEquals(9.0, estimateIntensityFromMagnitude(7.0), 0.1)
-    @Test fun estIntensityM8() = assertEquals(12.0, estimateIntensityFromMagnitude(8.0), 0.1)
+    @Test fun estIntensityM5() = assertEquals(5.0, estimateIntensityFromMagnitude(5.0), 0.1)
+    @Test fun estIntensityM7() = assertEquals(7.0, estimateIntensityFromMagnitude(7.0), 0.1)
+    @Test fun estIntensityM8() = assertEquals(8.0, estimateIntensityFromMagnitude(8.0), 0.1)
+    @Test fun estIntensityZero() = assertEquals(0.0, estimateIntensityFromMagnitude(0.0), 0.1)
+
+    // ===================== estimateSiteIntensity（用户所在地烈度衰减，P0-1/P0-2 核心） =====================
+    // 汪素云等 2000 短轴衰减模型：I = 2.941 + 1.363·M − 1.494·ln(R+7)，深度缺失按 10km 兜底。
+    // 下列用例直接锁定「判定层语义修复」：远震/弱震必须静默，近场中强震才告警。
+
+    @Test fun estSiteIntensityNearM5() {
+        // M5.0 / R20km / h10 → ~4.7（≥阈值3，应告警）
+        assertEquals(4.7, estimateSiteIntensity(5.0, 20.0, 10.0), 0.1)
+    }
+
+    @Test fun estSiteIntensityPuerM58() {
+        // 普洱 M5.8 / R280km / h12 → ~2.4（低于阈值3，昆明不应全屏）
+        assertEquals(2.4, estimateSiteIntensity(5.8, 280.0, 12.0), 0.1)
+    }
+
+    @Test fun estSiteIntensityFarM5() {
+        // M5.0 / R500km → ~0.5（静默）
+        assertEquals(0.5, estimateSiteIntensity(5.0, 500.0, 0.0), 0.1)
+    }
+
+    @Test fun estSiteIntensityXinjiangM32() {
+        // 新疆 M3.2 / R2600km → 0.0（全国小震误报场景，必须静默）
+        assertEquals(0.0, estimateSiteIntensity(3.2, 2600.0, 0.0), 0.01)
+    }
+
+    @Test fun estSiteIntensityM70R100() {
+        // M7.0 / R100km → ~5.5（中强震近场，橙色告警）
+        assertEquals(5.5, estimateSiteIntensity(7.0, 100.0, 0.0), 0.1)
+    }
+
+    @Test fun estSiteIntensityWenchuanM79() {
+        // 汶川级 M7.9 / R30km → ~8.3（近场，红色）
+        assertEquals(8.3, estimateSiteIntensity(7.9, 30.0, 0.0), 0.1)
+    }
+
+    @Test fun estSiteIntensityDistantStrongSilent() {
+        // P0-2 核心反例：新疆 M6.0 / R2600km → 0.0（震中烈度高但用户所在地无感，必须静默）
+        assertEquals(0.0, estimateSiteIntensity(6.0, 2600.0, 0.0), 0.01)
+    }
+
+    @Test fun estSiteIntensityZeroMag() {
+        // 震级非法 → 0.0，不触发
+        assertEquals(0.0, estimateSiteIntensity(0.0, 100.0, 10.0), 0.01)
+    }
 }

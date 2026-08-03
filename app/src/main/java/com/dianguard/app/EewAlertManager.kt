@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import org.json.JSONObject
 import java.util.LinkedHashMap
 
 /**
@@ -40,25 +39,7 @@ class EewAlertManager(val service: EewService) {
     @Volatile private var destroyed = false
 
     // ===================== EEW 解析 =====================
-
-    fun parseEew(raw: String): Eew? {
-        val obj = JSONObject(raw)
-        if (!obj.has("Latitude") || !obj.has("Longitude")) return null
-        val lat = obj.optDouble("Latitude", Double.NaN)
-        val lon = obj.optDouble("Longitude", Double.NaN)
-        if (lat.isNaN() || lon.isNaN()) return null
-        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null
-
-        val mag = obj.optDouble("Magnitude", obj.optDouble("Magunitude", 0.0))
-        val depth = obj.optDouble("Depth", 0.0)
-        val maxInt = obj.optString("MaxIntensity", "")
-        val hypo = obj.optString("HypoCenter", "未知地区")
-        val id = obj.optString("ID", "")
-        val eventId = obj.optString("EventID", id)
-        val reportNum = obj.optInt("ReportNum", 1)
-        val originTime = obj.optString("OriginTime", "")
-        return Eew(id, eventId, reportNum, originTime, hypo, lat, lon, mag, depth, maxInt)
-    }
+    // 解析/去重相关纯函数已抽至 Eew.kt 顶层（parseEew / makeQuakeKey），此处仅做告警分发。
 
     fun resolveIntensity(eew: Eew): Double {
         val fromField = parseIntensity(eew.maxIntensity)
@@ -72,14 +53,6 @@ class EewAlertManager(val service: EewService) {
         }
         val est = estimateIntensityFromMagnitude(eew.magnitude)
         return "约${"%.0f".format(est)}"
-    }
-
-    fun makeQuakeKey(e: Eew): String {
-        val lat = (e.latitude * 1000).toLong()
-        val lon = (e.longitude * 1000).toLong()
-        val mag = (e.magnitude * 10).toLong()
-        val ot = e.originTime.ifBlank { e.eventId }
-        return "$ot|$lat|$lon|$mag"
     }
 
     fun cleanupOldQuakes(now: Long) {
@@ -97,27 +70,24 @@ class EewAlertManager(val service: EewService) {
     fun handleRaw(raw: String, sourceId: String) {
         val eew = parseEew(raw) ?: return
 
-        lastDataReceivedMs = System.currentTimeMillis()
-        EewService.patchSourceState(sourceId) { copy(lastDataMs = System.currentTimeMillis()) }
-        if (dataStaleNotified) {
-            dataStaleNotified = false
-            service.connMgr.refreshHeadline()
-        }
-
         val quakeKey = makeQuakeKey(eew)
         val now = System.currentTimeMillis()
         cleanupOldQuakes(now)
 
         val distKm = haversineKm(AppConfig.homeLat, AppConfig.homeLon, eew.latitude, eew.longitude)
         val etaSec = AppConfig.estimateSWaveEtaSeconds(distKm)
-        val intensityVal = resolveIntensity(eew)
-        val intensityStr = resolveIntensityStr(eew)
-        val alertOk = eew.magnitude >= AppConfig.minIntensity  // 震级阈值判定
+
+        // 本地预估烈度：用震级 + 震中距 + 深度做距离衰减修正，得到【用户所在地】烈度
+        val siteIntensity = estimateSiteIntensity(eew.magnitude, distKm, eew.depthKm)
+        val intensityStr = "%.1f".format(siteIntensity)
+
+        // 告警判定：用【用户所在地】烈度对比用户设置的烈度阈值 —— 语义与 UI 文案一致
+        val alertOk = siteIntensity >= AppConfig.minIntensity
 
         Log.i(
             EewService.TAG,
-            "[$sourceId] 收到 EEW: ${eew.hypoCenter} M${eew.magnitude} 烈度$intensityStr " +
-                "距参考点${distKm.toInt()}km ETA${etaSec.toInt()}s | 震级阈值=$alertOk key=$quakeKey"
+            "[$sourceId] 收到 EEW: ${eew.hypoCenter} M${eew.magnitude} 本地烈度$intensityStr " +
+                "距参考点${distKm.toInt()}km ETA${etaSec.toInt()}s | 烈度阈值=$alertOk key=$quakeKey"
         )
 
         val seenBefore = synchronized(dedupLock) {

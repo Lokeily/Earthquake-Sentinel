@@ -45,8 +45,11 @@ object SelfCheck {
             )
         )
 
-        // 2. 悬浮窗权限（锁屏强制弹出必需）
-        val overlayOk = Settings.canDrawOverlays(context)
+        // 2. 悬浮窗权限（锁屏强制弹出必需）；SYSTEM_ALERT_WINDOW 运行时授权自 API 23 起，
+        // 旧版本安装即授予，故 <M 直接视为已授权（避免 minSdk=21 设备调用越界 API 崩溃）。
+        val overlayOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(context)
+        } else true
         list.add(
             CheckItem(
                 "悬浮窗权限",
@@ -88,8 +91,11 @@ object SelfCheck {
             )
         }
 
-        // 6. 电池优化豁免（防止系统杀后台）
-        val battOk = pm.isIgnoringBatteryOptimizations(context.packageName)
+        // 6. 电池优化豁免（防止系统杀后台）；isIgnoringBatteryOptimizations 自 API 23 起可用，
+        // 旧版本无此概念，视为已豁免。
+        val battOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            pm.isIgnoringBatteryOptimizations(context.packageName)
+        } else true
         list.add(
             CheckItem(
                 "电池优化",

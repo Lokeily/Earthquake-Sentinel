@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 防止 R8 shrinkResources 误删动态命名音频资源 -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/cnee_*,@raw/enable_notify,@raw/disable_notify" />

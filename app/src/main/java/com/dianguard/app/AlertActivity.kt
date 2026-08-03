@@ -7,6 +7,7 @@ import android.os.CountDownTimer
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import android.content.Intent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -57,6 +58,8 @@ class AlertActivity : AppCompatActivity() {
     private var alarmStarted = false
     // 倒计时进入最后 10 秒后停止第一段短语、改播音频自带的 10→1（只触发一次）
     private var countdownTriggered = false
+    // 拉起告警前记录的 ALARM 流原始音量，解除时还原，避免设备长期处于最大音量
+    private var savedAlarmVolume = -1
 
     private val refreshReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
@@ -64,7 +67,8 @@ class AlertActivity : AppCompatActivity() {
             val eta = intent.getDoubleExtra(EewService.EXTRA_ETA, -1.0)
             val eventId = intent.getStringExtra(EewService.EXTRA_EVENT_ID)
             if (eventId == currentEventId && eta > 0) {
-                // 刷新倒计时（短语仍在循环，不重播）
+                // 后续报修正 ETA：若被上修到 10 秒以上，允许重新触发倒计时语音播报
+                if (eta > 10) countdownTriggered = false
                 startCountdown(eta)
                 tvPlace.text = intent.getStringExtra(EewService.EXTRA_PLACE) ?: tvPlace.text
                 tvMag.text = "M${intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)}"
@@ -111,32 +115,7 @@ class AlertActivity : AppCompatActivity() {
         tvUnit = findViewById(R.id.tv_unit)
         tvHint = findViewById(R.id.tv_hint)
 
-        currentEventId = intent.getStringExtra(EewService.EXTRA_EVENT_ID)
-        val place = intent.getStringExtra(EewService.EXTRA_PLACE) ?: "未知地区"
-        val mag = intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)
-        val intensityStr = intent.getStringExtra(EewService.EXTRA_INTENSITY) ?: "-"
-        currentLevel = warningLevel(mag)
-
-        tvPlace.text = place
-        tvMag.text = "M$mag"
-        tvLevel.text = currentLevel.label()
-        tvLevel.setTextColor(levelColor(currentLevel))
-        tvLevel.visibility =
-            if (currentLevel == WarningLevel.NONE) android.view.View.GONE else android.view.View.VISIBLE
-        tvDamage.text = damageDescription(currentLevel, intensityStr)
-        tvDamage.setTextColor(levelColor(currentLevel))
-        updateDetail(intent)
-
-        // 背景板 / 状态栏 / 文字配色严格跟随预警等级
-        applyLevelTheme(currentLevel)
-
-        val eta = intent.getDoubleExtra(EewService.EXTRA_ETA, 0.0)
-
-        countdownTriggered = false
-
-        // 新流程：第一段短语循环播放 + 视觉倒计时（最后 10 秒改用音频自带 10→1）
-        EewVoice.playPhraseLoop(currentLevel)
-        startCountdown(eta)
+        bindAlertData(intent)
 
         btnDismiss.setOnClickListener { dismissAlert() }
 
@@ -153,6 +132,52 @@ class AlertActivity : AppCompatActivity() {
 
         LocalBroadcastManager.getInstance(this)
             .registerReceiver(refreshReceiver, android.content.IntentFilter(EewService.ACTION_REFRESH))
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent ?: return
+        setIntent(intent)
+        val newEventId = intent.getStringExtra(EewService.EXTRA_EVENT_ID)
+        // 同事件后续报交给 refreshReceiver 处理，不在此重置
+        if (newEventId == currentEventId) return
+        // 不同地震（典型为余震）：完整重置告警状态
+        bindAlertData(intent)
+        vibrate()
+    }
+
+    /**
+     * 绑定一次地震告警所需的全部 UI 与音频状态。
+     * onCreate 与 onNewIntent（不同事件）共用，保证余震来临时界面被完整刷新。
+     */
+    private fun bindAlertData(intent: Intent) {
+        countDownTimer?.cancel()
+        EewVoice.stopAll()
+        alarmStarted = false
+        countdownTriggered = false
+
+        currentEventId = intent.getStringExtra(EewService.EXTRA_EVENT_ID)
+        val place = intent.getStringExtra(EewService.EXTRA_PLACE) ?: "未知地区"
+        val mag = intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)
+        val intensityStr = intent.getStringExtra(EewService.EXTRA_INTENSITY) ?: "-"
+        val siteIntensity = intensityStr.toDoubleOrNull() ?: 0.0
+        currentLevel = warningLevelByIntensity(siteIntensity)
+
+        tvPlace.text = place
+        tvMag.text = "M$mag"
+        tvLevel.text = currentLevel.label()
+        tvLevel.setTextColor(levelColor(currentLevel))
+        tvLevel.visibility =
+            if (currentLevel == WarningLevel.NONE) android.view.View.GONE else android.view.View.VISIBLE
+        tvDamage.text = damageDescription(currentLevel, intensityStr)
+        tvDamage.setTextColor(levelColor(currentLevel))
+        updateDetail(intent)
+
+        applyLevelTheme(currentLevel)
+
+        val eta = intent.getDoubleExtra(EewService.EXTRA_ETA, 0.0)
+        EewVoice.playPhraseLoop(currentLevel)
+        startCountdown(eta)
     }
 
     private fun levelColor(level: WarningLevel): Int = when (level) {
@@ -260,9 +285,20 @@ class AlertActivity : AppCompatActivity() {
     private fun boostAlarmVolume() {
         try {
             val am = getSystemService(AUDIO_SERVICE) as AudioManager
+            savedAlarmVolume = am.getStreamVolume(AudioManager.STREAM_ALARM)
             val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
             am.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
         } catch (_: Exception) { }
+    }
+
+    /** 还原 ALARM 流音量（解除告警或页面被销毁时调用） */
+    private fun restoreAlarmVolume() {
+        if (savedAlarmVolume < 0) return
+        try {
+            val am = getSystemService(AUDIO_SERVICE) as AudioManager
+            am.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVolume, 0)
+        } catch (_: Exception) { }
+        savedAlarmVolume = -1
     }
 
     private fun vibrate() {
@@ -280,6 +316,7 @@ class AlertActivity : AppCompatActivity() {
 
     private fun dismissAlert() {
         EewVoice.stopAll()
+        restoreAlarmVolume()
         countDownTimer?.cancel()
         try { vibrator?.cancel() } catch (_: Exception) { }
         try {
@@ -296,6 +333,7 @@ class AlertActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         EewVoice.release()
+        restoreAlarmVolume()
         try { vibrator?.cancel() } catch (_: Exception) { }
         LocalBroadcastManager.getInstance(this).unregisterReceiver(refreshReceiver)
     }
