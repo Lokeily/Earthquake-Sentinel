@@ -56,16 +56,16 @@ fun parseIntensity(s: String): Double {
 }
 
 /**
- * 预警等级（按预估烈度，对齐中国大陆地震预警 红/橙/黄/蓝 四级标准）。
- * 红=预估烈度≥7（强破坏），橙≥6（破坏），黄≥4（强有感），蓝≥3（有感），其余不提示。
+ * 预警等级（按震级，对齐中国地震预警 红/橙/黄/蓝 四级标准）。
+ * 红=6级以上（强破坏），橙=5-6级（破坏），黄=4-5级（强有感），蓝=4级以下（有感），其余不提示。
  */
 enum class WarningLevel { RED, ORANGE, YELLOW, BLUE, NONE }
 
-fun warningLevel(intensity: Double): WarningLevel = when {
-    intensity >= 7.0 -> WarningLevel.RED
-    intensity >= 6.0 -> WarningLevel.ORANGE
-    intensity >= 4.0 -> WarningLevel.YELLOW
-    intensity >= 3.0 -> WarningLevel.BLUE
+fun warningLevel(magnitude: Double): WarningLevel = when {
+    magnitude >= 6.0 -> WarningLevel.RED
+    magnitude >= 5.0 -> WarningLevel.ORANGE
+    magnitude >= 4.0 -> WarningLevel.YELLOW
+    magnitude >= 0.1 -> WarningLevel.BLUE
     else -> WarningLevel.NONE
 }
 
