@@ -115,7 +115,7 @@ class AlertActivity : AppCompatActivity() {
         val place = intent.getStringExtra(EewService.EXTRA_PLACE) ?: "未知地区"
         val mag = intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)
         val intensityStr = intent.getStringExtra(EewService.EXTRA_INTENSITY) ?: "-"
-        currentLevel = warningLevel(parseIntensity(intensityStr))
+        currentLevel = warningLevel(mag)
 
         tvPlace.text = place
         tvMag.text = "M$mag"
