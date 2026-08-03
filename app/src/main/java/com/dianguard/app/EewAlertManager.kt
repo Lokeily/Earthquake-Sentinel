@@ -112,12 +112,12 @@ class EewAlertManager(val service: EewService) {
         val etaSec = AppConfig.estimateSWaveEtaSeconds(distKm)
         val intensityVal = resolveIntensity(eew)
         val intensityStr = resolveIntensityStr(eew)
-        val intOk = intensityVal >= AppConfig.minIntensity
+        val alertOk = eew.magnitude >= AppConfig.minIntensity  // 震级阈值判定
 
         Log.i(
             EewService.TAG,
             "[$sourceId] 收到 EEW: ${eew.hypoCenter} M${eew.magnitude} 烈度$intensityStr " +
-                "距参考点${distKm.toInt()}km ETA${etaSec.toInt()}s | 烈度阈值=$intOk key=$quakeKey"
+                "距参考点${distKm.toInt()}km ETA${etaSec.toInt()}s | 震级阈值=$alertOk key=$quakeKey"
         )
 
         val seenBefore = synchronized(dedupLock) {
@@ -126,7 +126,7 @@ class EewAlertManager(val service: EewService) {
             seen
         }
 
-        if (intOk) {
+        if (alertOk) {
             if (activeEventId == eew.eventId || activeQuakeKey == quakeKey) {
                 postRefresh(eew, distKm, etaSec, intensityStr)
             } else if (!seenBefore) {
@@ -148,7 +148,7 @@ class EewAlertManager(val service: EewService) {
                 place = eew.hypoCenter, magnitude = eew.magnitude, depthKm = eew.depthKm,
                 intensity = intensityStr, distanceKm = distKm, etaSec = etaSec,
                 sourceName = EEW_SOURCES.firstOrNull { it.id == sourceId }?.name ?: sourceId,
-                reportNum = eew.reportNum, triggered = intOk, backup = false
+                reportNum = eew.reportNum, triggered = alertOk, backup = false
             )
         )
         notifyHistoryChanged()
