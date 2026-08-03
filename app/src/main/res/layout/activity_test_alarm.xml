@@ -14,240 +14,157 @@
         android:paddingTop="16dp"
         android:paddingBottom="32dp">
 
-        <!-- 顶部栏：返回 + 标题 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingVertical="4dp">
+            android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/btn_back"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="‹ 返回"
-                android:textColor="@color/ios_blue"
-                android:textSize="16sp"
-                android:paddingVertical="8dp"
-                android:paddingHorizontal="4dp"
-                android:clickable="true"
-                android:focusable="true" />
+            <TextView android:id="@+id/btn_back" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="‹ 返回"
+                android:textColor="@color/ios_blue" android:textSize="16sp"
+                android:paddingVertical="8dp" android:clickable="true" android:focusable="true" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/test_alarm_title"
-                android:textColor="@color/ios_label"
-                android:textSize="22sp"
-                android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="8dp" android:text="@string/test_alarm_title"
+                android:textColor="@color/ios_label" android:textSize="22sp" android:textStyle="bold" />
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/test_alarm_hint"
-            android:textColor="@color/ios_label_secondary"
-            android:textSize="13sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="@string/test_alarm_hint"
+            android:textColor="@color/ios_label_secondary" android:textSize="13sp" />
 
         <Space android:layout_width="match_parent" android:layout_height="16dp" />
 
-        <!-- 蓝色预警 -->
-        <LinearLayout
-            android:id="@+id/card_blue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_card"
-            android:padding="16dp">
-
-            <View
-                android:layout_width="6dp"
-                android:layout_height="40dp"
-                android:background="@color/level_blue"
-                android:layout_marginEnd="14dp" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/level_blue_name"
-                    android:textColor="@color/level_blue"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/level_blue_phrase"
-                    android:textColor="@color/ios_label_secondary"
-                    android:textSize="13sp" />
+        <!-- 🔵 蓝色 -->
+        <LinearLayout android:id="@+id/card_blue" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:background="@drawable/bg_card" android:padding="16dp"
+            android:layout_marginBottom="10dp">
+            <View android:layout_width="match_parent" android:layout_height="3dp"
+                android:background="@color/level_blue" android:layout_marginBottom="10dp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/level_blue_name" android:textColor="@color/level_blue"
+                android:textSize="17sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="3dp" android:text="@string/level_blue_phrase"
+                android:textColor="@color/ios_label_secondary" android:textSize="13sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="10dp">
+                <TextView android:id="@+id/btn_blue_demo" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="试听" android:textColor="@color/level_blue"
+                    android:background="@drawable/bg_card" android:textSize="13sp"
+                    android:clickable="true" android:focusable="true" />
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                <TextView android:id="@+id/btn_blue_sim" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="🔵 全屏模拟" android:textColor="#FFFFFF"
+                    android:background="@color/level_blue" android:textSize="13sp"
+                    android:textStyle="bold" android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
-
-        <!-- 黄色预警 -->
-        <LinearLayout
-            android:id="@+id/card_yellow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_card"
-            android:padding="16dp">
-
-            <View
-                android:layout_width="6dp"
-                android:layout_height="40dp"
-                android:background="@color/level_yellow"
-                android:layout_marginEnd="14dp" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/level_yellow_name"
-                    android:textColor="@color/level_yellow"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/level_yellow_phrase"
-                    android:textColor="@color/ios_label_secondary"
-                    android:textSize="13sp" />
+        <!-- 🟡 黄色 -->
+        <LinearLayout android:id="@+id/card_yellow" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:background="@drawable/bg_card" android:padding="16dp"
+            android:layout_marginBottom="10dp">
+            <View android:layout_width="match_parent" android:layout_height="3dp"
+                android:background="@color/level_yellow" android:layout_marginBottom="10dp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/level_yellow_name" android:textColor="@color/level_yellow"
+                android:textSize="17sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="3dp" android:text="@string/level_yellow_phrase"
+                android:textColor="@color/ios_label_secondary" android:textSize="13sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="10dp">
+                <TextView android:id="@+id/btn_yellow_demo" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="试听" android:textColor="@color/level_yellow"
+                    android:background="@drawable/bg_card" android:textSize="13sp"
+                    android:clickable="true" android:focusable="true" />
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                <TextView android:id="@+id/btn_yellow_sim" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="🟡 全屏模拟" android:textColor="#FFFFFF"
+                    android:background="@color/level_yellow" android:textSize="13sp"
+                    android:textStyle="bold" android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
-
-        <!-- 橙色预警 -->
-        <LinearLayout
-            android:id="@+id/card_orange"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_card"
-            android:padding="16dp">
-
-            <View
-                android:layout_width="6dp"
-                android:layout_height="40dp"
-                android:background="@color/level_orange"
-                android:layout_marginEnd="14dp" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/level_orange_name"
-                    android:textColor="@color/level_orange"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/level_orange_phrase"
-                    android:textColor="@color/ios_label_secondary"
-                    android:textSize="13sp" />
+        <!-- 🟠 橙色 -->
+        <LinearLayout android:id="@+id/card_orange" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:background="@drawable/bg_card" android:padding="16dp"
+            android:layout_marginBottom="10dp">
+            <View android:layout_width="match_parent" android:layout_height="3dp"
+                android:background="@color/level_orange" android:layout_marginBottom="10dp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/level_orange_name" android:textColor="@color/level_orange"
+                android:textSize="17sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="3dp" android:text="@string/level_orange_phrase"
+                android:textColor="@color/ios_label_secondary" android:textSize="13sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="10dp">
+                <TextView android:id="@+id/btn_orange_demo" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="试听" android:textColor="@color/level_orange"
+                    android:background="@drawable/bg_card" android:textSize="13sp"
+                    android:clickable="true" android:focusable="true" />
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                <TextView android:id="@+id/btn_orange_sim" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="🟠 全屏模拟" android:textColor="#FFFFFF"
+                    android:background="@color/level_orange" android:textSize="13sp"
+                    android:textStyle="bold" android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
-
-        <!-- 红色预警 -->
-        <LinearLayout
-            android:id="@+id/card_red"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_card"
-            android:padding="16dp">
-
-            <View
-                android:layout_width="6dp"
-                android:layout_height="40dp"
-                android:background="@color/level_red"
-                android:layout_marginEnd="14dp" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/level_red_name"
-                    android:textColor="@color/level_red"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/level_red_phrase"
-                    android:textColor="@color/ios_label_secondary"
-                    android:textSize="13sp" />
+        <!-- 🔴 红色 -->
+        <LinearLayout android:id="@+id/card_red" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:background="@drawable/bg_card" android:padding="16dp"
+            android:layout_marginBottom="20dp">
+            <View android:layout_width="match_parent" android:layout_height="3dp"
+                android:background="@color/level_red" android:layout_marginBottom="10dp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/level_red_name" android:textColor="@color/level_red"
+                android:textSize="17sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="3dp" android:text="@string/level_red_phrase"
+                android:textColor="@color/ios_label_secondary" android:textSize="13sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="10dp">
+                <TextView android:id="@+id/btn_red_demo" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="试听" android:textColor="@color/level_red"
+                    android:background="@drawable/bg_card" android:textSize="13sp"
+                    android:clickable="true" android:focusable="true" />
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                <TextView android:id="@+id/btn_red_sim" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="38dp" android:gravity="center"
+                    android:text="🔴 全屏模拟" android:textColor="#FFFFFF"
+                    android:background="@color/level_red" android:textSize="13sp"
+                    android:textStyle="bold" android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="24dp" />
-
-        <Button
-            android:id="@+id/btn_full"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:background="@drawable/bg_button_primary"
-            android:text="@string/btn_full_sim"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
+        <Button android:id="@+id/btn_full" android:layout_width="match_parent"
+            android:layout_height="54dp" android:background="@drawable/bg_button_primary"
+            android:text="@string/btn_full_sim" android:textColor="#FFFFFF"
+            android:textSize="16sp" android:textStyle="bold"
+            android:textAllCaps="false" android:stateListAnimator="@null" />
 
         <Space android:layout_width="match_parent" android:layout_height="12dp" />
 
-        <Button
-            android:id="@+id/btn_stop"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:background="@drawable/bg_button_danger"
-            android:text="@string/btn_stop_play"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
+        <Button android:id="@+id/btn_stop" android:layout_width="match_parent"
+            android:layout_height="50dp" android:background="@drawable/bg_button_danger"
+            android:text="@string/btn_stop_play" android:textColor="#FFFFFF"
+            android:textSize="15sp" android:textStyle="bold"
+            android:textAllCaps="false" android:stateListAnimator="@null" />
 
     </LinearLayout>
 </ScrollView>
