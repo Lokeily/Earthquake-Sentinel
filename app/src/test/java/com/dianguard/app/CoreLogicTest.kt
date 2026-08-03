@@ -120,14 +120,17 @@ class CoreLogicTest {
         assertNull(parseEew("""{"EventID":"t3","Latitude":25.0}"""))
     }
 
-    // ===================== warningLevel =====================
+    // ===================== warningLevel (震级) =====================
 
-    @Test fun warningLevelBlue() = assertEquals(WarningLevel.BLUE, warningLevel(3.0))
-    @Test fun warningLevelBlueUpper() = assertEquals(WarningLevel.BLUE, warningLevel(4.99))
-    @Test fun warningLevelYellow() = assertEquals(WarningLevel.YELLOW, warningLevel(5.0))
-    @Test fun warningLevelOrange() = assertEquals(WarningLevel.ORANGE, warningLevel(7.0))
-    @Test fun warningLevelRed() = assertEquals(WarningLevel.RED, warningLevel(9.0))
-    @Test fun warningLevelNone() = assertEquals(WarningLevel.NONE, warningLevel(2.0))
+    @Test fun warningLevelBlue() = assertEquals(WarningLevel.BLUE, warningLevel(3.5))
+    @Test fun warningLevelBlueUpper() = assertEquals(WarningLevel.BLUE, warningLevel(3.99))
+    @Test fun warningLevelYellow() = assertEquals(WarningLevel.YELLOW, warningLevel(4.0))
+    @Test fun warningLevelYellowUpper() = assertEquals(WarningLevel.YELLOW, warningLevel(4.99))
+    @Test fun warningLevelOrange() = assertEquals(WarningLevel.ORANGE, warningLevel(5.0))
+    @Test fun warningLevelOrangeUpper() = assertEquals(WarningLevel.ORANGE, warningLevel(5.99))
+    @Test fun warningLevelRed() = assertEquals(WarningLevel.RED, warningLevel(6.0))
+    @Test fun warningLevelRedStrong() = assertEquals(WarningLevel.RED, warningLevel(8.0))
+    @Test fun warningLevelNone() = assertEquals(WarningLevel.NONE, warningLevel(0.0))
 
     // ===================== estimateIntensityFromMagnitude =====================
 
