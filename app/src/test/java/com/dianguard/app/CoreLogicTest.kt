@@ -132,16 +132,17 @@ class CoreLogicTest {
     @Test fun warningLevelRedStrong() = assertEquals(WarningLevel.RED, warningLevel(8.0))
     @Test fun warningLevelNone() = assertEquals(WarningLevel.NONE, warningLevel(0.0))
 
-    // ===================== warningLevelByIntensity（用户所在地烈度） =====================
+    // ===================== warningLevelByIntensity（用户所在地烈度，官方标准 7/5/3 分界） =====================
+    // 中国地震局标准：红 ≥ 7°（灾害性）｜橙 5–6°（灾害性）｜黄 3–4°（告知性）｜蓝 < 3°（告知性）
 
-    @Test fun warningLevelByIntensityNone() = assertEquals(WarningLevel.NONE, warningLevelByIntensity(1.5))
-    @Test fun warningLevelByIntensityBlue() = assertEquals(WarningLevel.BLUE, warningLevelByIntensity(2.0))
-    @Test fun warningLevelByIntensityBlueUpper() = assertEquals(WarningLevel.BLUE, warningLevelByIntensity(3.9))
-    @Test fun warningLevelByIntensityYellow() = assertEquals(WarningLevel.YELLOW, warningLevelByIntensity(4.0))
-    @Test fun warningLevelByIntensityYellowUpper() = assertEquals(WarningLevel.YELLOW, warningLevelByIntensity(5.9))
-    @Test fun warningLevelByIntensityOrange() = assertEquals(WarningLevel.ORANGE, warningLevelByIntensity(6.0))
-    @Test fun warningLevelByIntensityOrangeUpper() = assertEquals(WarningLevel.ORANGE, warningLevelByIntensity(7.9))
-    @Test fun warningLevelByIntensityRed() = assertEquals(WarningLevel.RED, warningLevelByIntensity(8.0))
+    @Test fun warningLevelByIntensityBlue() = assertEquals(WarningLevel.BLUE, warningLevelByIntensity(0.5))
+    @Test fun warningLevelByIntensityBlueUpper() = assertEquals(WarningLevel.BLUE, warningLevelByIntensity(2.9))
+    @Test fun warningLevelByIntensityYellow() = assertEquals(WarningLevel.YELLOW, warningLevelByIntensity(3.0))
+    @Test fun warningLevelByIntensityYellowUpper() = assertEquals(WarningLevel.YELLOW, warningLevelByIntensity(4.9))
+    @Test fun warningLevelByIntensityOrange() = assertEquals(WarningLevel.ORANGE, warningLevelByIntensity(5.0))
+    @Test fun warningLevelByIntensityOrangeUpper() = assertEquals(WarningLevel.ORANGE, warningLevelByIntensity(6.9))
+    @Test fun warningLevelByIntensityRed() = assertEquals(WarningLevel.RED, warningLevelByIntensity(7.0))
+    @Test fun warningLevelByIntensityRedStrong() = assertEquals(WarningLevel.RED, warningLevelByIntensity(9.0))
 
     // ===================== estimateIntensityFromMagnitude =====================
     // 文档约定：近震中烈度 ≈ 震级（兜底估算，非精确烈度）

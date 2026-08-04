@@ -209,17 +209,20 @@ fun warningLevel(magnitude: Double): WarningLevel = when {
 }
 
 /**
- * 按【用户所在地预估烈度】划分预警等级，对齐中国地震预警 红/橙/黄/蓝 四级标准：
- *   红 ≥ 8°、橙 6-8°、黄 4-6°、蓝 2-4°、其余不提示。
+ * 按【用户所在地预估烈度】划分预警等级，对齐中国地震局及省级地震局官方标准
+ * （本地预估烈度分级，非震级）：
+ *   Ⅰ级 红 ≥ 7°（灾害性预警）
+ *   Ⅱ级 橙 5–6°（灾害性预警）
+ *   Ⅲ级 黄 3–4°（告知性预警）
+ *   Ⅳ级 蓝 < 3°（告知性预警）
  * 与 warningLevel（按震级）不同，本函数使等级、配色、破坏描述、语音分级四者
  * 与用户实际感受一致。
  */
 fun warningLevelByIntensity(siteIntensity: Double): WarningLevel = when {
-    siteIntensity >= 8.0 -> WarningLevel.RED
-    siteIntensity >= 6.0 -> WarningLevel.ORANGE
-    siteIntensity >= 4.0 -> WarningLevel.YELLOW
-    siteIntensity >= 2.0 -> WarningLevel.BLUE
-    else -> WarningLevel.NONE
+    siteIntensity >= 7.0 -> WarningLevel.RED
+    siteIntensity >= 5.0 -> WarningLevel.ORANGE
+    siteIntensity >= 3.0 -> WarningLevel.YELLOW
+    else -> WarningLevel.BLUE
 }
 
 /** 等级对应的展示文字（用于告警页徽标） */
