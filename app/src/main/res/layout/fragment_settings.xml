@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设置页（v1.0.17）：底部导航“设置”内容区（原为独立 Activity，现改为 Fragment） -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ios_grouped_bg"
+    android:fillViewport="true"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title"
+            android:textColor="@color/ios_label"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 参考位置卡片 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_location_title"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_loc"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_button_primary"
+                android:text="@string/btn_loc"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/settings_location_hint"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_location_display"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_input"
+                android:padding="12dp"
+                android:minHeight="48dp"
+                android:gravity="center_vertical"
+                android:text="@string/location_display_empty"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 预警阈值卡片（仅烈度） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_threshold_title"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp">
+
+                <Spinner
+                    android:id="@+id/spinner_intensity"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="invisible" />
+
+                <TextView
+                    android:id="@+id/tv_intensity_trigger"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_input"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textColor="@color/ios_label"
+                    android:textSize="15sp"
+                    android:drawableEnd="@drawable/ic_chevron_down"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/settings_threshold_hint"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 远震小震提醒 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/sw_distant"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/sw_distant"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 外观 / 深色模式 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_theme_title"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp">
+
+                <Spinner
+                    android:id="@+id/spinner_theme"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="invisible" />
+
+                <TextView
+                    android:id="@+id/tv_theme_trigger"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_input"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textColor="@color/ios_label"
+                    android:textSize="15sp"
+                    android:drawableEnd="@drawable/ic_chevron_down"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/settings_theme_hint"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="24dp" />
+
+        <Button
+            android:id="@+id/btn_test"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:background="@drawable/bg_button_primary"
+            android:text="@string/btn_test"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
+        <Button
+            android:id="@+id/btn_selfcheck"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="@string/btn_selfcheck"
+            android:textColor="@color/ios_blue"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
+        <Button
+            android:id="@+id/btn_check_update"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="@string/btn_check_update"
+            android:textColor="@color/ios_blue"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <Space android:layout_width="match_parent" android:layout_height="10dp" />
+
+        <TextView
+            android:id="@+id/tv_about_version"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="12sp" />
+
+        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
+        <Button
+            android:id="@+id/btn_clear_history"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="@string/history_clear_settings"
+            android:textColor="@color/alert_red"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
+        <Button
+            android:id="@+id/btn_disclaimer"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="@string/btn_disclaimer"
+            android:textColor="@color/ios_blue"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_hint"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+</ScrollView>

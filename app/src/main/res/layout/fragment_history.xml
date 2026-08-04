@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ios_grouped_bg"
+    android:fillViewport="true"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="32dp">
+
+        <!-- 标题栏：标题 + 记录数 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/history_title"
+                android:textColor="@color/ios_label"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_history_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 最新/重点地震特色卡片：深底卡片 + 等级色顶条，保证深色模式下文字清晰可读 -->
+        <LinearLayout
+            android:id="@+id/feature_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone">
+
+            <!-- 顶部等级色装饰条 -->
+            <View
+                android:id="@+id/feature_accent"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:background="@color/level_blue" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/feature_reltime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="刚刚"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="13sp" />
+
+                <Space android:layout_width="match_parent" android:layout_height="10dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/feature_place"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="未知地区"
+                            android:textColor="@color/ios_label"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/feature_time"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="2026-01-01 00:00:00"
+                            android:textColor="@color/ios_label_secondary"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="end">
+
+                        <TextView
+                            android:id="@+id/feature_mag_badge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_level_badge"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="4dp"
+                            android:text="5.1级"
+                            android:textColor="@android:color/white"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/feature_depth"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:text="震源深度5公里"
+                            android:textColor="@color/ios_label_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:id="@+id/feature_summary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_feature_summary"
+                    android:gravity="center"
+                    android:paddingVertical="10dp"
+                    android:text="预警时间-秒，预估烈度-度"
+                    android:textColor="@color/ios_label"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 列表为空时的占位 -->
+        <TextView
+            android:id="@+id/tv_history_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingVertical="40dp"
+            android:text="@string/history_empty"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="14sp" />
+
+        <!-- 记录列表（动态生成） -->
+        <LinearLayout
+            android:id="@+id/history_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+    </LinearLayout>
+</ScrollView>

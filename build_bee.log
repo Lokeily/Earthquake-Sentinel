@@ -1,0 +1,105 @@
+> Task :app:clean
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs NO-SOURCE
+> Task :app:stripReleaseDebugSymbols NO-SOURCE
+> Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:dataBindingMergeDependencyArtifactsRelease
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:generateReleaseResValues
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:generateReleaseBuildConfig
+> Task :app:parseReleaseLocalResources
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:javaPreCompileRelease
+> Task :app:mergeReleaseArtProfile
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseStartupProfile UP-TO-DATE
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:processApplicationManifestReleaseForBundle
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeReleaseResources
+> Task :app:dataBindingGenBaseClassesRelease
+> Task :app:processReleaseResources
+> Task :app:bundleReleaseResources
+
+> Task :app:compileReleaseKotlin
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:19:47 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:134:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:164:13 Variable 'siteIntensity' is never used
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:226:30 'setter for systemUiVisibility: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:227:34 'getter for systemUiVisibility: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:227:61 'SYSTEM_UI_FLAG_LIGHT_STATUS_BAR: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:229:34 'getter for systemUiVisibility: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:229:62 'SYSTEM_UI_FLAG_LIGHT_STATUS_BAR: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:362:41 'VIBRATOR_SERVICE: String' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:379:13 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AlertActivity.kt:394:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdateChecker.kt:33:15 Parameter 'context' is never used
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:3:20 'ProgressDialog' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:64:41 'ProgressDialog' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:65:22 'constructor ProgressDialog(Context!)' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:65:22 'ProgressDialog' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:66:13 'setMessage(CharSequence!): Unit' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:67:13 'setProgressStyle(Int): Unit' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:67:30 'ProgressDialog' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:67:45 'STYLE_HORIZONTAL: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:68:13 'setter for isIndeterminate: Boolean' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:69:13 'setter for max: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/AppUpdater.kt:115:73 'setter for progress: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewAlertManager.kt:186:48 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewAlertManager.kt:296:52 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewService.kt:25:47 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewService.kt:184:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewService.kt:224:13 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewService.kt:293:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewService.kt:346:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/EewVoice.kt:173:20 Parameter 'level' is never used
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HistoryFragment.kt:72:52 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HistoryFragment.kt:80:52 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:23:47 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:127:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:129:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:144:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:145:9 'LocalBroadcastManager' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:370:13 'requestPermissions(Array<(out) String!>, Int): Unit' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:484:15 'onRequestPermissionsResult(Int, Array<(out) String!>, IntArray): Unit' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/HomeFragment.kt:500:15 'onActivityResult(Int, Int, Intent?): Unit' is deprecated. Deprecated in Java
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/LocationHelper.kt:102:30 This declaration overrides deprecated member but not marked as deprecated itself. Please add @Deprecated annotation or suppress. See https://youtrack.jetbrains.com/issue/KT-47902 for details
+w: file:///C:/Users/nsklr/WorkBuddy/2026-08-01-14-49-09/Dianguard/app/src/main/java/com/dianguard/app/LocationHelper.kt:123:38 This declaration overrides deprecated member but not marked as deprecated itself. Please add @Deprecated annotation or suppress. See https://youtrack.jetbrains.com/issue/KT-47902 for details
+
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:mergeReleaseGeneratedProguardFiles UP-TO-DATE
+> Task :app:processReleaseJavaRes
+> Task :app:expandReleaseArtProfileWildcards
+> Task :app:mergeReleaseJavaResource
+> Task :app:minifyReleaseWithR8
+> Task :app:compileReleaseArtProfile
+> Task :app:shrinkReleaseRes
+> Task :app:optimizeReleaseResources
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+
+BUILD SUCCESSFUL in 19s
+48 actionable tasks: 46 executed, 2 up-to-date

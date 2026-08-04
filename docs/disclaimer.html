@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>免责声明与用户协议 — 地震哨兵 Dianguard</title>
+  <meta name="description" content="地震哨兵 Dianguard 的免责声明与用户协议。地震预警涉及生命安全，请以官方预警渠道为准。">
+  <link rel="icon" type="image/png" href="assets/ic_launcher.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-disclaimer">
+  <div class="scroll-progress"><i></i></div>
+  <canvas id="wave-canvas"></canvas>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <nav class="nav" id="site-nav">
+    <a class="nav-logo" href="index.html">
+      <img src="assets/ic_launcher.png" alt="地震哨兵">
+      <span>地震哨兵</span>
+    </a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="打开菜单" aria-expanded="false"><i></i><i></i><i></i></button>
+    <div class="nav-links" id="nav-links">
+      <a href="index.html">首页</a>
+      <a href="features.html">功能</a>
+      <a href="how.html">技术原理</a>
+      <a href="changelog.html">版本更新</a>
+      <a href="disclaimer.html" class="active">免责声明</a>
+      <span class="nav-sep"></span>
+      <a class="nav-github" href="https://github.com/Lokeily/Earthquake-Sentinel" target="_blank" rel="noopener" aria-label="GitHub 仓库">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.1.82-.26.82-.58v-2.2c-3.34.72-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.3-.54-1.53.11-3.18 0 0 1.01-.32 3.3 1.23a11.4 11.4 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.23 0 4.63-2.8 5.65-5.48 5.95.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5z"/></svg>
+      </a>
+      <a class="nav-cta" href="index.html#download">下载 APK</a>
+    </div>
+  </nav>
+
+  <main class="disclaimer-section">
+    <div class="container disclaimer-container">
+      <header class="disclaimer-header">
+        <h1>免责声明与用户协议</h1>
+        <p class="lead">地震预警涉及生命安全，请以官方预警渠道（如各地政府地震预警系统、手机内置预警）为准。使用本应用即表示已阅读并同意以下条款。</p>
+      </header>
+
+      <article class="disclaimer-body">
+        <section class="disclaimer-block warning">
+          <h2>重要提示</h2>
+          <p>您可自愿接收地震预警信息，请理解，预警信息只作为避险参考，没收到警报但感受到地震时仍需要避险。请根据预警时间和避险到就近安全地点的时间选择合理的避险措施。您基于地震预警服务做出任何行为导致的风险和后果均由您自行承担。</p>
+          <p>地震预警信息由中国地震台网中心提供（信息源展示为「中国地震预警网」），地震预警信息受现有技术条件、监测网络覆盖范围及地质环境复杂性限制，可能存在误差或延迟，我们对地震预警信息的准确性、有效性、及时性不作承诺和保证，亦不保证地震预警服务能满足您的所有需求。</p>
+          <p>接收地震预警信息需要您保持手机网络正常运行，您理解并同意，地震预警信息的传输取决于若干原因，包括但不限于网络的畅通度、手机是否在信号区内、App 未能正常运行等无法确保的情况，包括因第三方如通讯线路故障、技术问题、网络、终端设备故障、系统不稳定性及其他各种不可抗力原因，本服务无法保证您能实时收到该预警信息，由此遭受的一切损失，我们不承担责任。</p>
+          <p>启用地震预警服务将自动开启定位开关。</p>
+        </section>
+
+        <section class="disclaimer-block">
+          <h2>地震预警服务与免责声明</h2>
+          <p>为使用地震预警服务，请您详细阅读本声明所有内容特别是免责条款。</p>
+          <p>请您充分理解并完全同意本声明包括免责条款的全部内容后，再使用地震哨兵（以下简称「本软件」）提供的地震预警服务。</p>
+        </section>
+
+        <section class="disclaimer-block">
+          <h2>一、关于本服务</h2>
+          <p>本服务地震预警由中国地震台网中心提供（信息源展示为「中国地震预警网」）。本软件作为第三方信息聚合与展示工具，通过网络从公共聚合服务（wolfx.jp）转发官方预警报文，不生产数据、不修改内容。</p>
+          <p>您可自愿接受是否选择启用预警服务，且在开启后，您仍可随时在主页面关闭「开启预警监听」按钮来关闭服务。</p>
+        </section>
+
+        <section class="disclaimer-block">
+          <h2>二、用户个人信息保护</h2>
+          <p>在为您提供服务的过程中，我们需要获取您的位置权限，以定位您与震中的距离、计算 S 波到达参考点的倒计时。位置坐标仅保存在您本机；为生成可读地址（如「云南省昆明市」），系统会将坐标经系统地理编码服务转换为文字地址。</p>
+          <p>基于信息收集的目的，或遵守相关适用的法律法规保留您的个人信息。您的个人信息在完成收集目的后，我们将停止保留数据，或进行脱敏、去标识化处理。</p>
+          <p>本软件不收集、可视化、统计您的任何个人信息；除网络请求必须的 URL 路径外，无任何数据上报行为。</p>
+        </section>
+
+        <section class="disclaimer-block">
+          <h2>三、用户注意事项</h2>
+          <ol>
+            <li>地震预警是全自动的秒级响应，为实时接收预警，需要软件能够保持联网状态。您理解并同意，为了向您提供有效的服务，本软件使用过程中可能产生数据流量的费用，并需要您自行承担相关费用。</li>
+            <li>您理解并同意，开通此功能，地震预警信息不受免打扰时间和预置音量的控制，免打扰时间或静音状态下，您仍会接收到预警信息及提醒音。</li>
+            <li>您了解地震预警的原理、功能，理解地震预警存在预警盲区。</li>
+            <li>您理解并同意，您收到地震预警时，需采取合理的避险措施。由于技术是不断更新发展的，地震预警服务可能存在一定的误差。即使您没收到警报但感受到地震时仍需要避险。</li>
+            <li>请根据预警时间和避险到就近安全地点的时间选择合理的避险措施。</li>
+          </ol>
+        </section>
+
+        <section class="disclaimer-block">
+          <h2>四、免责说明</h2>
+          <ol>
+            <li>地震预警服务为可选功能，您主动触发开关视为您自愿接收地震预警信息。</li>
+            <li>您理解地震预警信息仅作为您评估安全风险和做出安全决策的参考，地震预警只能提供几秒到几十秒的预警时间，您基于地震预警服务做出任何行为导致的风险和后果均由您自行承担。</li>
+            <li>接收地震预警信息需要您保持手机网络正常运行，您理解并同意，地震预警信息的传输取决于若干原因，包括但不限于网络的畅通度、手机是否在信号区内、App 未能正常运行等无法确保的情况，包括因第三方如通讯线路故障、技术问题、网络、终端设备故障、系统不稳定性及其他各种不可抗力原因，本服务无法保证您能实时收到该预警信息，由此遭受的一切损失，我们不承担责任。</li>
+            <li>因技术原因、技术故障、不可抗力等因素造成地震预警误报、漏报、延迟通报的，本软件开发者与地震预警信息提供方均不承担责任。</li>
+            <li>我们对以下方面亦不提供任何明示或暗示的陈述和保证，包括但不限于对有效性、准确性、完整性、适销性、特殊目的之适用性及为侵权的任何陈述和保证。我们无法控制您的网络运营商，因此对于其网络覆盖范围、可用性或其提供的服务质量无法提供任何保证。</li>
+          </ol>
+        </section>
+
+        <section class="disclaimer-block">
+          <h2>五、关于第三方服务说明</h2>
+          <p>您知悉，地震预警信息由第三方中国地震台网中心（经 wolfx.jp 公共聚合转发）提供。本软件作为信息聚合展示工具，不对原始数据的准确性负责，亦不保证第三方服务的可用性、稳定性与持续性。</p>
+          <p>如因第三方产品和服务引发任何纠纷，由该第三方负责解决，本软件不承担责任。</p>
+        </section>
+
+        <section class="disclaimer-block">
+          <h2>六、适用法律及管辖条款</h2>
+          <p>除非您住所地的法律有相关的规定，本协议受中华人民共和国法律管辖，并依据中华人民共和国法律进行解释，且不适用其冲突法规范。双方基于本服务所产生的任何纠纷应友好协商解决，协商不成的均可提交至被告所在地法院进行管辖。</p>
+          <p>我们保留随时更新本服务说明的权利，并通过推送新的版本或明显提示来提醒您协议内容有更新。您继续使用我们的服务视为您接受更新后的服务说明内容，本声明自更新之日起生效。</p>
+          <p>您选择打开、使用地震预警服务即表明您已经同意上述条款。</p>
+        </section>
+      </article>
+
+      <div class="disclaimer-actions">
+        <a class="btn btn-primary" href="index.html#download">我已阅读，返回下载</a>
+        <a class="btn btn-secondary" href="index.html">返回首页</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="assets/ic_launcher.png" alt="">
+        <div>
+          <strong>地震哨兵 Dianguard</strong>
+          <p>开源 Android 地震预警应用 · 仅供学习与研究使用</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">首页</a>
+        <a href="features.html">功能详解</a>
+        <a href="how.html">技术原理</a>
+        <a href="changelog.html">版本更新</a>
+        <a href="disclaimer.html">免责声明</a>
+        <a href="https://github.com/Lokeily/Earthquake-Sentinel" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <p class="footer-copy">© 2026 地震哨兵 Dianguard · 地震预警信息源自中国地震台网中心（经公共聚合转发），请以官方渠道为准。</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

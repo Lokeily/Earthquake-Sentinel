@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>技术原理 — 地震哨兵 Dianguard</title>
+  <meta name="description" content="地震哨兵如何为你争取那几秒：P 波与 S 波传播、预警时间轴、汪素云等(2000)烈度衰减公式、多源数据流架构、预警盲区与触发决策流程。">
+  <link rel="icon" type="image/png" href="assets/ic_launcher.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-how">
+  <div class="scroll-progress"><i></i></div>
+  <canvas id="wave-canvas"></canvas>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <nav class="nav" id="site-nav">
+    <a class="nav-logo" href="index.html">
+      <img src="assets/ic_launcher.png" alt="地震哨兵">
+      <span>地震哨兵</span>
+    </a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="打开菜单" aria-expanded="false"><i></i><i></i><i></i></button>
+    <div class="nav-links" id="nav-links">
+      <a href="index.html">首页</a>
+      <a href="features.html">功能</a>
+      <a href="how.html" class="active">技术原理</a>
+      <a href="changelog.html">版本更新</a>
+      <a href="disclaimer.html">免责声明</a>
+      <span class="nav-sep"></span>
+      <a class="nav-github" href="https://github.com/Lokeily/Earthquake-Sentinel" target="_blank" rel="noopener" aria-label="GitHub 仓库">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.1.82-.26.82-.58v-2.2c-3.34.72-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.3-.54-1.53.11-3.18 0 0 1.01-.32 3.3 1.23a11.4 11.4 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.23 0 4.63-2.8 5.65-5.48 5.95.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5z"/></svg>
+      </a>
+      <a class="nav-cta" href="index.html#download">下载 APK</a>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <div class="container">
+      <span class="kicker"><span class="dot level-purple"></span>技术原理</span>
+      <h1>它到底，是怎么<span class="gradient-text">替你抢时间</span>的</h1>
+      <p class="lead">地震预警不是预测地震，而是在地震已经发生后，抢在破坏性震动抵达你脚下之前，把那几秒到几十秒变成可以行动的时间。下面用六个部分，把它讲清楚。</p>
+      <div class="page-actions">
+        <a class="btn btn-primary" data-release-download href="https://github.com/Lokeily/Earthquake-Sentinel/releases/latest">
+          <span class="dl-label">立即下载 APK</span>
+        </a>
+        <a class="btn btn-secondary" href="features.html">先看看功能详解</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="subnav" id="subnav">
+    <a href="#mechanism">地震波</a>
+    <a href="#timeline">预警时间轴</a>
+    <a href="#intensity">烈度公式</a>
+    <a href="#arch">数据流架构</a>
+    <a href="#blindzone">预警盲区</a>
+    <a href="#decision">触发决策</a>
+  </div>
+
+  <!-- 1. 地震波 -->
+  <section id="mechanism" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <span class="fx-eyebrow">01 — 地震波</span>
+        <h2>先到的是 P 波，会破坏的是 S 波</h2>
+      </div>
+
+      <div class="hp-dual">
+        <div class="hp-copy">
+          <p>地震发生的瞬间，会同时放出两类波：跑得<strong>快</strong>的 P 波（纵波）几乎无害，跑得<strong>慢</strong>的 S 波（横波）才是让建筑摇晃、致人伤亡的元凶。预警，就是利用两者到达你这里的<strong>时间差</strong>。</p>
+          <div class="stat-strip">
+            <div class="stat-cell"><b data-count="6" data-suffix=" km/s">0 km/s</b><span>P 波传播速度</span></div>
+            <div class="stat-cell"><b data-count="3.5" data-decimal="1" data-suffix=" km/s">0 km/s</b><span>S 波传播速度</span></div>
+            <div class="stat-cell"><b data-count="12" data-suffix=" s">0 s</b><span>近震可争取时间</span></div>
+          </div>
+        </div>
+
+        <div class="hp-visual">
+          <div class="wave-demo reveal" id="wave-demo">
+            <div class="wd-grid"></div>
+            <canvas class="wd-canvas"></canvas>
+            <div class="wd-epi"></div>
+            <div class="wd-you">
+              <div class="pin">
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z" fill="none"/><circle cx="12" cy="10" r="2.4"/></svg>
+              </div>
+              <span>你</span>
+            </div>
+            <div class="wd-hud">
+              <span class="wd-dist">震中距 ≈ 480 km</span>
+              <span class="wd-time">T+<b>0.0</b>s</span>
+            </div>
+            <div class="wd-arrive">⚠ S 波已抵达 · 立即避险</div>
+            <div class="wd-legend">
+              <span class="p"><i></i>P 波（纵波 · 先到 · 无害）</span>
+              <span class="s"><i></i>S 波（横波 · 后到 · 破坏）</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. 时间轴 -->
+  <section id="timeline" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <span class="fx-eyebrow">02 — 链路</span>
+        <h2>从地动山摇到手机响铃</h2>
+        <p>从震源破裂到预警送达手机，链路上的每一步都以「秒」计。下面这条时间轴，是真实预警会被压缩到的窗口——滚动时进度会跟着你走。</p>
+      </div>
+      <div class="timeline reveal">
+        <div class="tl-track"><span class="tl-fill"></span>
+          <span class="tl-dot" style="left:0%"></span>
+          <span class="tl-dot" style="left:34%"></span>
+          <span class="tl-dot" style="left:67%"></span>
+          <span class="tl-dot" style="left:100%"></span>
+          <span class="tl-runner"></span>
+        </div>
+        <div class="tl-steps">
+          <div class="tl-step">
+            <div class="tl-time">T + 0 s</div>
+            <b>地震发生</b>
+            <p>震源破裂，P 波与 S 波同时向四周传播。</p>
+          </div>
+          <div class="tl-step">
+            <div class="tl-time">T + 数秒</div>
+            <b>台网测定</b>
+            <p>周边地震台站捕捉到 P 波，自动反推震中、震级与深度。</p>
+          </div>
+          <div class="tl-step">
+            <div class="tl-time">T + 数秒</div>
+            <b>预警发出</b>
+            <p>国家级预警系统生成报文，经多路公共转发节点推送。</p>
+          </div>
+          <div class="tl-step">
+            <div class="tl-time">T + 数秒~数十秒</div>
+            <b>S 波抵达你</b>
+            <p>手机收到报文并倒计时，在 S 波到达前提醒你避险。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 烈度公式 -->
+  <section id="intensity" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <span class="fx-eyebrow">03 — 烈度</span>
+        <h2>它算的不是「震级」，而是「你这里有多晃」</h2>
+      </div>
+
+      <div class="hp-dual">
+        <div class="hp-copy">
+          <p>同样是 6 级地震，500 公里外和 20 公里外完全是两回事。地震哨兵用震级、震中距与深度，估算你所在地的烈度，再决定要不要打扰你。</p>
+          <div class="formula-card reveal">
+            <div class="formula">
+              I ≈ 2.941 + 1.363·<em>M</em> − 1.494·ln(<em>R</em> + 7)
+            </div>
+            <div class="formula-legend">
+              <span><b>M</b>震级</span>
+              <span><b>R</b>你到震中的距离 (km)</span>
+              <span><b>I</b>你所在地的烈度</span>
+            </div>
+            <p class="formula-note">基于汪素云等（2000）中国地区烈度衰减关系。应用用你授权的大致位置得到 R，反推出本地烈度 I，再与你设定的阈值比较。</p>
+          </div>
+          <div class="callout reveal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>
+            <div>
+              <b>为什么不用震级直接告警</b>
+              <p>震级只描述地震本身有多大，但对你有没有危险，取决于你离它多远、震源有多深。按本地烈度触发，才能做到「远处大震不骚扰、近处小震及时报」。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hp-visual">
+          <div class="intensity-vis reveal" id="intensity-vis">
+            <div class="iv-readout">
+              <span class="iv-label">你所在地烈度</span>
+              <b class="iv-value">—</b>
+              <span class="iv-sub">震级 M 6.5 · 距离 R 变化中</span>
+            </div>
+            <svg class="iv-svg" viewBox="0 0 360 240" aria-hidden="true">
+              <defs>
+                <linearGradient id="ivFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(10,132,255,0.34)"/>
+                  <stop offset="100%" stop-color="rgba(10,132,255,0)"/>
+                </linearGradient>
+                <linearGradient id="ivStroke" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#0A84FF"/>
+                  <stop offset="100%" stop-color="#AF52DE"/>
+                </linearGradient>
+              </defs>
+              <path class="iv-area" fill="url(#ivFill)" d=""/>
+              <path class="iv-curve" fill="none" stroke="url(#ivStroke)" stroke-width="3" stroke-linecap="round" d=""/>
+              <line class="iv-vline" x1="0" y1="0" x2="0" y2="240" stroke="rgba(255,255,255,0.22)" stroke-width="1" stroke-dasharray="3 4"/>
+              <circle class="iv-marker" r="6.5" fill="#fff" stroke="#0A84FF" stroke-width="3"/>
+            </svg>
+            <div class="iv-axis">横轴：你到震中的距离 R (km) →　纵轴：你感受到的烈度 I</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 数据流架构 -->
+  <section id="arch" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <span class="fx-eyebrow">04 — 架构</span>
+        <h2>多源并行：一条链路挂了，还有别的</h2>
+        <p>预警报文要经过公共转发节点才能到手机。单一节点一旦限流、维护或断网，你就完全收不到——而且根本不会知道。地震哨兵同时常驻多条相互独立的链路，数据像光点一样持续汇聚。</p>
+      </div>
+      <div class="arch reveal">
+        <div class="arch-row">
+          <div class="arch-node"><b>Wolfx CENC</b><span>ws-api.wolfx.jp</span></div>
+          <div class="arch-node"><b>Wolfx SC / CQ</b><span>四川 · 重庆局</span></div>
+          <div class="arch-node"><b>BeeCLD · 2v8</b><span>api.2v8.cn</span></div>
+          <div class="arch-node"><b>FAN Studio</b><span>ws.fanstudio.tech</span></div>
+        </div>
+        <div class="arch-flow">
+          <svg viewBox="0 0 600 58" preserveAspectRatio="none">
+            <path d="M100 6 C 200 6, 220 52, 300 52"/>
+            <path d="M233 6 C 280 6, 290 52, 300 52"/>
+            <path d="M366 6 C 320 6, 310 52, 300 52"/>
+            <path d="M500 6 C 400 6, 380 52, 300 52"/>
+          </svg>
+        </div>
+        <div class="arch-row">
+          <div class="arch-node hub"><b>地震哨兵</b><span>WebSocket 并行汇聚 · 自动去重</span></div>
+        </div>
+        <p class="arch-caption">四条链路同时在线，谁先送达就用谁的；同一次地震从多个源到达时，只弹一次告警。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. 盲区 -->
+  <section id="blindzone" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <span class="fx-eyebrow">05 — 局限</span>
+        <h2>预警有盲区，这是物理规律</h2>
+        <p>预警依赖「地震已经发生、但破坏波还没到」这件事。越靠近震中，S 波越快抵达，留给预警的时间越短——近到一定程度，预警根本来不及发出。这是所有地震预警系统共有的局限。</p>
+      </div>
+      <div class="blindzone reveal">
+        <div class="bz-graph">
+          <span class="bz-sweep"></span>
+          <span class="bz-pulse"></span>
+          <i class="z1"></i>
+          <i class="z2"></i>
+          <i class="z3"></i>
+          <i class="core"></i>
+        </div>
+        <ul class="bz-legend">
+          <li>
+            <span class="swatch r"></span>
+            <div><b>近场盲区</b><p>震中极近区域，S 波几乎与测定同步到达，预警往往来不及发出。</p></div>
+          </li>
+          <li>
+            <span class="swatch o"></span>
+            <div><b>预警有效区</b><p>有一定距离，既有足够时间测定、又能在 S 波前送达，是预警真正发挥作用的地方。</p></div>
+          </li>
+          <li>
+            <span class="swatch b"></span>
+            <div><b>远场衰减区</b><p>距离更远，震动已明显衰减，常只进通知栏记录，不再打扰你。</p></div>
+          </li>
+        </ul>
+      </div>
+      <div class="callout reveal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>
+        <div>
+          <b>没收到警报 ≠ 没有地震</b>
+          <p>即使预警因盲区、网络或设备原因没送达，只要感受到震动，请立即按避险本能行动。预警是参考，不是保险。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. 决策 -->
+  <section id="decision" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <span class="fx-eyebrow">06 — 决策</span>
+        <h2>收到报文后，它怎么决定「要不要叫你」</h2>
+        <p>从一段原始报文到一次全屏告警，中间只有几个确定性的判断。下面这条流程，就是每次预警都会走的逻辑。</p>
+      </div>
+      <div class="flow reveal">
+        <span class="flow-pkt"></span>
+        <div class="flow-node"><b>收到预警报文</b><span>来自任一数据源，含震中、震级、深度、发震时刻</span></div>
+        <div class="flow-arrow-v"></div>
+        <div class="flow-node decide"><b>估算本地烈度 I</b><span>用震级 M、震中距 R、深度 D，结合你的位置反推</span></div>
+        <div class="flow-arrow-v"></div>
+        <div class="flow-node decide"><b>I ≥ 阈值 且 已过冷静期？</b><span>阈值默认 2°（推荐），可设为 3° / 4°；启动后 15 秒冷静期防误报</span></div>
+        <div class="flow-arrow-v"></div>
+        <div class="flow-split">
+          <div class="flow-node alert"><b>是 → 全屏倒计时</b><span>锁屏之上、自动亮屏、真实语音 + 震动同步</span></div>
+          <div class="flow-node quiet"><b>否 → 仅通知栏 / 历史</b><span>不打断你，安静记录这次地震</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="container">
+      <div class="cta-inner">
+        <h2>原理看懂了，不如让一台旧手机真正跑起来</h2>
+        <p>下载按钮实时指向 GitHub 上的最新 Release，你拿到的永远是最新版本。</p>
+        <div class="cta-actions">
+          <a class="btn btn-primary btn-large" data-release-download href="https://github.com/Lokeily/Earthquake-Sentinel/releases/latest">
+            <span class="dl-label">立即下载 APK</span>
+          </a>
+          <a class="btn btn-secondary" href="features.html">回看功能详解</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="assets/ic_launcher.png" alt="">
+        <div>
+          <strong>地震哨兵 Dianguard</strong>
+          <p>开源 Android 地震预警应用 · 仅供学习与研究使用</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">首页</a>
+        <a href="features.html">功能详解</a>
+        <a href="how.html">技术原理</a>
+        <a href="changelog.html">版本更新</a>
+        <a href="disclaimer.html">免责声明</a>
+        <a href="https://github.com/Lokeily/Earthquake-Sentinel" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <p class="footer-copy">© 2026 地震哨兵 Dianguard · 地震预警信息源自中国地震台网中心（经公共聚合转发），请以官方渠道为准。</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

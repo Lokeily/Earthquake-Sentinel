@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  全屏地震预警页（v1.3.x 新排版，修复倒计时被遮蔽 / 底部面板黑底黑字问题）。
+
+  布局策略（稳定、不依赖权重猜高度）：
+  - 顶部倒计时区：layout_height="wrap_content"，始终贴顶居中显示，绝不被裁切；
+  - 中部信息区：layout_height="0dp" + layout_weight="1"，占满剩余空间，内容过多可滚动；
+  - 底部操作区：layout_height="wrap_content"，始终贴底，带半透明黑背景（文字恒为白色）。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_alert"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/alert_red">
+
+    <!-- 倒计时区：高度自适应，贴顶居中；大数字 + “秒”同行 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingTop="32dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@+id/tv_countdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="--"
+            android:textColor="#FFFFFF"
+            android:textSize="72sp"
+            android:includeFontPadding="false"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_unit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_marginBottom="12dp"
+            android:text="秒"
+            android:textColor="#FFE5E5"
+            android:textSize="18sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 信息区：占满剩余空间，可滚动 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:paddingHorizontal="20dp"
+                android:paddingBottom="16dp">
+
+                <TextView
+                    android:id="@+id/tv_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/alert_title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="28sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_level"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text=""
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_level_badge"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="5dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_place"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="未知地区"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/tv_mag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="0.0级地震"
+                    android:textColor="#FFFFFF"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_detail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text=""
+                    android:textColor="#FFE5E5"
+                    android:textSize="14sp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/tv_damage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:paddingHorizontal="12dp"
+                    android:text=""
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:gravity="center"
+                    android:lineSpacingExtra="4dp" />
+            </LinearLayout>
+        </FrameLayout>
+    </ScrollView>
+
+    <!-- 底部操作区：高度自适应，始终贴底；半透明黑底，文字恒为白色 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingTop="16dp"
+        android:paddingBottom="24dp"
+        android:paddingHorizontal="16dp"
+        android:background="#E6000000">
+
+        <TextView
+            android:id="@+id/tv_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/alert_hint"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:layout_marginBottom="12dp"
+            android:gravity="center" />
+
+        <Button
+            android:id="@+id/btn_dismiss"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@drawable/bg_card"
+            android:text="@string/alert_dismiss"
+            android:textColor="@color/ios_destructive"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+    </LinearLayout>
+
+</LinearLayout>

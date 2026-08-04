@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 网络：订阅震前预警 WebSocket -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 前台服务：保活监听，防止被系统回收 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14+ 前台服务类型声明（数据同步类，对应 WebSocket 常驻监听） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- 唤醒锁：收到预警时点亮屏幕、保持 CPU 运行直到告警结束 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Android 13+ 通知权限（前台服务通知 + 预警推送通知） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 定位：用于抓取当前位置作为预警参考点，并随设备移动及时刷新 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 震动：真实预警全屏告警时提供触觉反馈（普通权限，安装即授予） -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- 悬浮窗：真实预警时无论 App 是否在前台，都必须以悬浮窗形式强制弹出 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- 应用内更新：下载后直接调起系统安装器（Android 8+ 必需） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- 开机自启：老手机通电/重启后自动恢复预警监听 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- 引导用户关闭电池优化（非运行时授权，弹出系统设置页） -->
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="ProtectedPermissions" />
+
+    <application
+        android:name=".DianguardApp"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Dianguard">
+
+        <!-- 配置主页 -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Dianguard">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 全屏倒计时告警页（锁屏之上、横竖屏均可） -->
+        <activity
+            android:name=".AlertActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dianguard.Alert"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <!-- 厂商保活（自启动/电池白名单）引导页 -->
+        <activity
+            android:name=".GuideActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dianguard" />
+
+        <!-- 测试报警：四级预警分别试听（从“设置”Tab 进入） -->
+        <activity
+            android:name=".TestAlarmActivity"
+            android:exported="false"
+            android:label="@string/test_alarm_title"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.Dianguard" />
+
+        <!-- 免责声明与用户协议（v1.1.0 全新发布） -->
+        <activity
+            android:name=".DisclaimerActivity"
+            android:exported="false"
+            android:label="@string/disclaimer_title"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.Dianguard" />
+
+        <!-- 常驻预警前台服务：订阅 EEW、计算 S 波 ETA、触发告警 -->
+        <service
+            android:name=".EewService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            android:stopWithTask="false" />
+
+        <!-- 开机自启接收器 -->
+        <receiver
+            android:name=".BootCompletedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 应用内更新：对外共享已下载的 APK 供系统安装器安装 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.dianguard.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

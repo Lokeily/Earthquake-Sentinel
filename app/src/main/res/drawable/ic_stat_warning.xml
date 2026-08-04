@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <!-- 通知栏小图标：纯白警示三角 + 感叹号（API21+ 通知图标须单色） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2 L22,20 L2,20 Z" />
+    <path
+        android:fillColor="#D32F2F"
+        android:pathData="M11,9 L13,9 L13,15 L11,15 Z" />
+    <path
+        android:fillColor="#D32F2F"
+        android:pathData="M11,17 L13,17 L13,19 L11,19 Z" />
+</vector>

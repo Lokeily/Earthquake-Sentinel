@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 单条地震历史记录（v1.2.0+）：白底卡片、左侧等级色震级圆环、右侧地点/预警摘要/发震时刻，对齐截图 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/bg_card"
+    android:padding="12dp"
+    android:layout_marginBottom="10dp">
+
+    <!-- 左侧：震级圆圈（等级色圆环 + 白底） -->
+    <TextView
+        android:id="@+id/item_magnitude"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:gravity="center"
+        android:textColor="@color/ios_label_secondary"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:background="@drawable/bg_magnitude_circle" />
+
+    <!-- 右侧：震中 / 预警摘要 / 发震时刻 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingStart="12dp">
+
+        <TextView
+            android:id="@+id/item_place"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="未知地区"
+            android:textColor="@color/ios_label"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/item_summary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="预警时间-秒，预估烈度-度"
+            android:textColor="@color/ios_label"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/item_meta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="发震时刻：2026-01-01 00:00:00"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

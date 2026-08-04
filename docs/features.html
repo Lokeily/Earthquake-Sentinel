@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>功能详解 — 地震哨兵 Dianguard</title>
+  <meta name="description" content="地震哨兵的完整功能说明：全屏倒计时告警、四级预警体系、真实大陆预警语音、多源冗余、烈度阈值、模拟演练、历史记录、深色省电与隐私策略。">
+  <link rel="icon" type="image/png" href="assets/ic_launcher.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-features">
+  <div class="scroll-progress"><i></i></div>
+  <canvas id="wave-canvas"></canvas>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <nav class="nav" id="site-nav">
+    <a class="nav-logo" href="index.html">
+      <img src="assets/ic_launcher.png" alt="地震哨兵">
+      <span>地震哨兵</span>
+    </a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="打开菜单" aria-expanded="false"><i></i><i></i><i></i></button>
+    <div class="nav-links" id="nav-links">
+      <a href="index.html">首页</a>
+      <a href="features.html" class="active">功能</a>
+      <a href="how.html">技术原理</a>
+      <a href="changelog.html">版本更新</a>
+      <a href="disclaimer.html">免责声明</a>
+      <span class="nav-sep"></span>
+      <a class="nav-github" href="https://github.com/Lokeily/Earthquake-Sentinel" target="_blank" rel="noopener" aria-label="GitHub 仓库">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.1.82-.26.82-.58v-2.2c-3.34.72-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.3-.54-1.53.11-3.18 0 0 1.01-.32 3.3 1.23a11.4 11.4 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.23 0 4.63-2.8 5.65-5.48 5.95.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5z"/></svg>
+      </a>
+      <a class="nav-cta" href="index.html#download">下载 APK</a>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <div class="container">
+      <span class="kicker"><span class="dot level-blue"></span>功能详解</span>
+      <h1>每一个功能，<br>都是为了<span class="gradient-text">争取那几秒</span></h1>
+      <p class="lead">地震哨兵不追求功能数量，只做一件事：在破坏性震动抵达你脚下之前，用最不可能被忽略的方式提醒你，并告诉你还剩多少秒。以下是它全部能力的完整说明。</p>
+      <div class="page-actions">
+        <a class="btn btn-primary" data-release-download href="https://github.com/Lokeily/Earthquake-Sentinel/releases/latest">
+          <span class="dl-label">立即下载 APK</span>
+        </a>
+        <a class="btn btn-secondary" href="how.html">看看它的技术原理</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="subnav" id="subnav">
+    <a href="#alerting">告警体验</a>
+    <a href="#levels">四级预警</a>
+    <a href="#voice">预警语音</a>
+    <a href="#sources">多源冗余</a>
+    <a href="#control">个性化</a>
+    <a href="#privacy">隐私与省电</a>
+    <a href="#permissions">权限说明</a>
+    <a href="#compare">与系统预警对比</a>
+  </div>
+
+  <!-- 1. 告警体验 -->
+  <section id="alerting" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>告警体验：不可能被忽略</h2>
+        <p>普通通知会被免打扰、静音、锁屏挡下。地震预警只有几秒到几十秒，任何一次「没看到」都可能是致命的。</p>
+      </div>
+
+      <div class="fx-row">
+        <div class="fx-copy">
+          <span class="fx-tag">Full-screen Alert</span>
+          <h3>强制全屏倒计时</h3>
+          <p>达到阈值的预警会直接拉起全屏告警页，覆盖在锁屏之上并自动点亮屏幕，不依赖用户去下拉通知栏。</p>
+          <ul class="fx-points">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>锁屏之上直接弹出</b>，无需解锁即可看到剩余秒数与避险提示。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>倒计时字号自适应屏幕</b>，按屏高动态计算，小屏不溢出、大屏看得清。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>归零后不留空白</b>，倒计时结束立即切换为「地震波已抵达」，避免误以为程序卡死。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>震中地名始终可见</b>，全程不被其他文案替换，方便你判断这次到底发生在哪。</span></li>
+          </ul>
+        </div>
+        <div class="fx-visual">
+          <div class="phone small">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <div class="alert-card red">
+                <div class="alert-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>
+                </div>
+                <div class="alert-level">红色预警</div>
+                <div class="alert-mag">6.4 级地震</div>
+                <div class="alert-eta">
+                  <svg class="eta-ring" viewBox="0 0 100 100" aria-hidden="true">
+                    <circle class="eta-ring-bg" cx="50" cy="50" r="44"></circle>
+                    <circle class="eta-ring-fg" cx="50" cy="50" r="44"></circle>
+                  </svg>
+                  <span class="count">12</span>
+                  <span class="eta-label">秒后横波到达</span>
+                </div>
+                <div class="alert-tip">就近避险 · 保护头部</div>
+              </div>
+              <div class="mock-list compact" style="margin-top:auto">
+                <div class="mock-item">震中距约 86 km · 深度 10 km</div>
+                <div class="mock-item">本地烈度约 4.2 度</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fx-row reverse">
+        <div class="fx-copy">
+          <span class="fx-tag">Local Intensity</span>
+          <h3>算的是「你这里有多晃」</h3>
+          <p>很多预警只告诉你震级，但 6.0 级地震在 500 公里外和 20 公里外完全是两回事。地震哨兵用震级、震中距与震源深度估算<strong>你所在位置</strong>的烈度，再决定是否打扰你。</p>
+          <ul class="fx-points">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>基于<b>汪素云等（2000）</b>中国地区烈度衰减关系估算本地烈度。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>低于阈值的远震<b>只进通知栏和历史记录</b>，不打断你。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>详情行完整给出<b>震中距、预估本地震感、震源深度</b>三项关键数据。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>服务启动后有 <b>15 秒冷静期</b>，避免数据源补发历史报文造成误报惊吓。</span></li>
+          </ul>
+        </div>
+        <div class="fx-visual">
+          <div class="stat-strip" style="grid-template-columns:1fr 1fr;max-width:none;width:100%">
+            <div class="stat-cell"><b data-count="86" data-suffix=" km">0 km</b><span>震中距</span></div>
+            <div class="stat-cell"><b data-count="10" data-suffix=" km">0 km</b><span>震源深度</span></div>
+            <div class="stat-cell"><b data-count="42" data-decimal="1" data-suffix=" 度">0 度</b><span>预估本地烈度</span></div>
+            <div class="stat-cell"><b data-count="12" data-suffix=" s">0 s</b><span>可用避险时间</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. 四级预警 -->
+  <section id="levels" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>蓝 · 黄 · 橙 · 红 四级响应</h2>
+        <p>等级按<strong>震级</strong>划分，决定告警页的配色与语音内容；是否触发全屏，则由你所在地的<strong>估算烈度</strong>和你设定的阈值共同决定。</p>
+      </div>
+      <div class="level-table">
+        <div class="level-row blue">
+          <div class="level-name"><span class="dot level-blue"></span>蓝色</div>
+          <div class="level-mag">M &lt; 4.0</div>
+          <div class="level-desc">轻微地震。多数人可能仅感到轻微晃动，无需惊慌，留意后续信息即可。</div>
+        </div>
+        <div class="level-row yellow">
+          <div class="level-name"><span class="dot level-yellow"></span>黄色</div>
+          <div class="level-mag">4.0 ≤ M &lt; 5.0</div>
+          <div class="level-desc">有感地震。室内物品可能轻微晃动，请提高警惕，远离玻璃、吊灯与高处物品。</div>
+        </div>
+        <div class="level-row orange">
+          <div class="level-name"><span class="dot level-orange"></span>橙色</div>
+          <div class="level-mag">5.0 ≤ M &lt; 6.0</div>
+          <div class="level-desc">强烈地震。可能造成物品倾倒、墙体开裂，请立即采取防护措施并准备避险。</div>
+        </div>
+        <div class="level-row red">
+          <div class="level-name"><span class="dot level-red"></span>红色</div>
+          <div class="level-mag">M ≥ 6.0</div>
+          <div class="level-desc">破坏性地震。可能造成建筑损毁，请立即就近躲避、保护头部，震后有序撤离。</div>
+        </div>
+      </div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>
+        <div>
+          <b>等级 ≠ 一定会全屏</b>
+          <p>一次 6.0 级地震如果发生在 800 公里之外，你这里的估算烈度可能不到 2 度，此时只会进通知栏。反过来，一次 4.5 级的近震也可能触发全屏。这正是「按本地烈度触发」的意义。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 语音 -->
+  <section id="voice" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>真实大陆预警语音，不是机器读数字</h2>
+        <p>告警音频全部采用真实的大陆地震预警录音，分段拼接播放，走闹钟音频通道，静音与免打扰下依然响。</p>
+      </div>
+      <div class="fx-row">
+        <div class="fx-copy">
+          <span class="fx-tag">Audio Pipeline</span>
+          <h3>三段式播报</h3>
+          <p>从收到预警到震动抵达，音频按三个阶段自动衔接，不需要你做任何操作。</p>
+          <ul class="fx-points">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>STREAM_ALARM 通道</b>：与闹钟同级，不受媒体音量与静音影响。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>逐字倒计时音频</b>：10 / 9 / … / 1 为独立音频文件，每秒精确播放一个。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>分级短语</b>：不同等级对应不同的提示语，蓝色偏安抚、红色偏紧急。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>震动同步</b>：语音播报的同时触发震动，睡眠或嘈杂环境下也能感知。</span></li>
+          </ul>
+        </div>
+        <div class="fx-visual">
+          <div class="voice-seq">
+            <div class="vs-item">
+              <span class="vs-idx">1</span>
+              <div class="vs-body"><b>分级短语循环</b><span>「有感地震，请勿惊慌」等分级提示语</span></div>
+              <div class="vs-bars"><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="vs-item">
+              <span class="vs-idx">2</span>
+              <div class="vs-body"><b>逐字倒计时</b><span>10 / 9 / 8 … 每秒一个独立音频</span></div>
+              <div class="vs-bars"><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="vs-item">
+              <span class="vs-idx">3</span>
+              <div class="vs-body"><b>警报循环</b><span>归零后持续鸣响，直到你点「我已安全」</span></div>
+              <div class="vs-bars"><i></i><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 多源 -->
+  <section id="sources" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>多源冗余：一条链路挂了，还有别的</h2>
+        <p>地震预警报文需要经过公共转发节点才能到达手机。单一节点一旦限流、维护或断网，你就完全收不到预警——而你根本不会知道。</p>
+      </div>
+      <div class="source-grid">
+        <div class="source-card">
+          <div class="source-name">Wolfx CENC</div>
+          <div class="source-url">ws-api.wolfx.jp/cenc_eew</div>
+          <span class="badge free">免 Key · 默认启用</span>
+        </div>
+        <div class="source-card">
+          <div class="source-name">Wolfx SC / CQ</div>
+          <div class="source-url">四川 · 重庆地震局通道</div>
+          <span class="badge free">免 Key · 默认启用</span>
+        </div>
+        <div class="source-card">
+          <div class="source-name">BeeCLD · 2v8</div>
+          <div class="source-url">api.2v8.cn/ws/cea</div>
+          <span class="badge token">免费令牌 · 已内置</span>
+        </div>
+        <div class="source-card">
+          <div class="source-name">FAN Studio</div>
+          <div class="source-url">ws.fanstudio.tech/cea</div>
+          <span class="badge key">需 API 密钥 · 可选</span>
+        </div>
+      </div>
+      <div class="fx-row" style="margin-top:56px">
+        <div class="fx-copy">
+          <span class="fx-tag">Redundancy</span>
+          <h3>任一主机可达即触发</h3>
+          <p>所有数据源指向同一套国家级预警数据，但走的是<strong>互不相同的主机与网络路径</strong>。它们同时在线，谁先送到就用谁的，重复报文自动去重。</p>
+          <ul class="fx-points">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>并行连接</b>：多条 WebSocket 同时保持，不是主备切换，没有切换延迟。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>自动去重</b>：同一次地震从多个源到达时，只弹一次告警。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>断线自愈</b>：任一连接掉线自动重连，未配置密钥的源会被直接跳过而不空转。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>状态可见</b>：主页实时显示每条链路的在线情况，不做黑盒。</span></li>
+          </ul>
+          <p style="margin-top:20px"><a class="link-arrow" href="how.html#arch">查看完整数据流架构<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></p>
+        </div>
+        <div class="fx-visual">
+          <div class="reliability-graph" style="flex:none;width:100%;max-width:290px;height:270px">
+            <div class="rg-source">Wolfx</div>
+            <div class="rg-source">BeeCLD</div>
+            <div class="rg-source">FAN</div>
+            <div class="rg-hub">地震哨兵</div>
+            <svg class="rg-lines" viewBox="0 0 200 220" preserveAspectRatio="none">
+              <line x1="100" y1="30" x2="100" y2="180"></line>
+              <line x1="44" y1="72" x2="100" y2="180"></line>
+              <line x1="156" y1="72" x2="100" y2="180"></line>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. 个性化 -->
+  <section id="control" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>可以调，也可以演练</h2>
+        <p>预警是个平衡：太灵敏会疲劳，太保守会漏报。这些开关都交给你自己决定。</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon yellow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><circle cx="15" cy="12" r="3"/></svg>
+          </div>
+          <h3>烈度阈值三档可调</h3>
+          <p>2°（轻微有感，推荐）/ 3°（明显有感）/ 4°（强烈有感）。低于阈值仅通知栏提示，从源头避免告警疲劳。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon orange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v4h-4"/></svg>
+          </div>
+          <h3>真实感模拟演练</h3>
+          <p>以你附近的真实城市为震中、随机方位与 10–30 秒 ETA，拉起与真实预警<strong>完全一致</strong>的全屏页面，用来给家人做演练。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          </div>
+          <h3>参考位置可手动刷新</h3>
+          <p>首次授权后自动获取一次；之后只在设置页手动刷新，强制跳过系统缓存拿实时坐标，不会偷偷持续定位。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </div>
+          <h3>地震历史记录</h3>
+          <p>同步中国地震台网速报目录，展示最近数十条地震，含中文地名、震级、深度与发震时刻，按等级色标注。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <h3>系统自检</h3>
+          <p>一键检查定位、通知、悬浮窗、电池优化与网络状态，缺哪一项直接跳转到对应的系统设置页。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon cyan">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 19h16"/></svg>
+          </div>
+          <h3>应用内检查更新</h3>
+          <p>直接读取 GitHub 最新 Release，有新版会提示，不需要你手动去仓库翻。本站下载按钮同样实时指向最新版。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. 隐私省电 -->
+  <section id="privacy" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>隐私与续航</h2>
+        <p>一台常年插着电、放在桌角的旧手机，才是最合适的哨兵。所以它必须足够省电，也必须足够干净。</p>
+      </div>
+      <div class="fx-row">
+        <div class="fx-copy">
+          <span class="fx-tag">Privacy</span>
+          <h3>不收集、不统计、不上报</h3>
+          <p>应用没有任何埋点与统计 SDK。位置坐标只保存在本机，用于计算震中距；逆地理编码只在需要显示中文地名时发生。</p>
+          <ul class="fx-points">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>无账号体系</b>，不需要注册、不需要登录。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>无广告、无内购</b>，完全免费且开源，代码可自行审计。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>除网络请求必须的 URL 外，<b>无任何数据上报行为</b>。</span></li>
+          </ul>
+        </div>
+        <div class="fx-copy">
+          <span class="fx-tag">Battery</span>
+          <h3>一条长连接，几乎不耗电</h3>
+          <p>核心是常驻的轻量 WebSocket 长连接，平时只收心跳包，流量与功耗都极低。配合纯黑深色模式，旧手机可以长期通电待命。</p>
+          <ul class="fx-points">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>#000000 纯黑主题</b>，OLED / AMOLED 屏黑色像素直接熄灭。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>前台服务常驻</b>，配合电池优化豁免，被系统杀死的概率极低。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>全局简体中文字体</b>内嵌，不同机型上显示一致，港澳台繁体地名自动转简。</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. 权限 -->
+  <section id="permissions" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>它向你要哪些权限，为什么</h2>
+        <p>每一项权限都直接对应一个具体功能。缺少标为「必需」的权限，预警将无法正常工作。</p>
+      </div>
+      <div class="perm-grid">
+        <div class="perm-card">
+          <div class="perm-top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            <b>定位</b><span class="perm-req">必需</span>
+          </div>
+          <p>计算你与震中的距离，据此估算本地烈度与横波到达倒计时。坐标仅保存在本机。</p>
+        </div>
+        <div class="perm-card">
+          <div class="perm-top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <b>通知</b><span class="perm-req">必需</span>
+          </div>
+          <p>展示常驻的前台服务通知（保证不被系统杀死），以及低于阈值的远震提醒。</p>
+        </div>
+        <div class="perm-card">
+          <div class="perm-top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>
+            <b>悬浮窗 / 后台弹出</b><span class="perm-req">必需</span>
+          </div>
+          <p>让全屏告警页能在应用未打开、甚至锁屏状态下强制弹出。这是「不可能被忽略」的前提。</p>
+        </div>
+        <div class="perm-card">
+          <div class="perm-top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></svg>
+            <b>忽略电池优化</b><span class="perm-req">必需</span>
+          </div>
+          <p>阻止系统在息屏后冻结长连接。不豁免的话，你很可能在最需要的时候恰好是断线状态。</p>
+        </div>
+        <div class="perm-card">
+          <div class="perm-top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4"/><rect x="5" y="7" width="14" height="14" rx="2"/></svg>
+            <b>震动</b><span class="perm-req opt">建议</span>
+          </div>
+          <p>告警时同步震动。睡眠中或嘈杂环境下，震动往往比声音更容易把人唤醒。</p>
+        </div>
+        <div class="perm-card">
+          <div class="perm-top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>
+            <b>网络</b><span class="perm-req">必需</span>
+          </div>
+          <p>维持 WebSocket 长连接接收预警报文，以及拉取历史地震目录与中文地名。</p>
+        </div>
+      </div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>
+        <div>
+          <b>别忘了厂商白名单</b>
+          <p>小米、华为、OPPO、vivo、荣耀等系统会额外限制后台。请在系统设置中把地震哨兵加入<strong>自启动白名单</strong>并设为<strong>无限制运行</strong>，否则前面所有权限都可能白给。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. 对比 -->
+  <section id="compare" class="fx-block">
+    <div class="container">
+      <div class="fx-head">
+        <h2>和手机自带的地震预警有什么区别</h2>
+        <p>两者不冲突，建议同时开启。系统预警是底线保障，地震哨兵给你更多控制权和更明确的信息。</p>
+      </div>
+      <div class="table-wrap">
+        <table class="cmp-table">
+          <thead>
+            <tr><th>对比项</th><th>地震哨兵</th><th>系统自带预警</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>数据链路</td><td>多个相互独立的公共转发源并行</td><td>厂商 / 运营商单一链路</td></tr>
+            <tr><td>触发条件</td><td><span class="cmp-yes">按本地估算烈度，阈值可调</span></td><td>由厂商策略决定，通常不可调</td></tr>
+            <tr><td>告警形式</td><td>全屏倒计时 + 真实预警语音 + 震动</td><td>因机型而异，部分仅弹窗提示</td></tr>
+            <tr><td>模拟演练</td><td><span class="cmp-yes">支持，真实城市 + 随机 ETA</span></td><td><span class="cmp-no">通常不支持</span></td></tr>
+            <tr><td>历史记录</td><td><span class="cmp-yes">内置地震速报目录</span></td><td><span class="cmp-no">一般不提供</span></td></tr>
+            <tr><td>覆盖机型</td><td>Android 5.0 及以上，无品牌限制</td><td>仅限支持该功能的机型与地区</td></tr>
+            <tr><td>可审计性</td><td><span class="cmp-yes">开源，代码可查</span></td><td><span class="cmp-no">闭源</span></td></tr>
+            <tr><td>费用</td><td><span class="cmp-yes">免费无广告</span></td><td>免费</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="container">
+      <div class="cta-inner">
+        <h2>把那台闲置的旧手机，派上真正的用场</h2>
+        <p>下载按钮实时指向 GitHub 上的最新 Release，你拿到的永远是最新版本。</p>
+        <div class="cta-actions">
+          <a class="btn btn-primary btn-large" data-release-download href="https://github.com/Lokeily/Earthquake-Sentinel/releases/latest">
+            <span class="dl-label">立即下载 APK</span>
+          </a>
+          <a class="btn btn-secondary" href="how.html">先看看技术原理</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="assets/ic_launcher.png" alt="">
+        <div>
+          <strong>地震哨兵 Dianguard</strong>
+          <p>开源 Android 地震预警应用 · 仅供学习与研究使用</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">首页</a>
+        <a href="features.html">功能详解</a>
+        <a href="how.html">技术原理</a>
+        <a href="changelog.html">版本更新</a>
+        <a href="disclaimer.html">免责声明</a>
+        <a href="https://github.com/Lokeily/Earthquake-Sentinel" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <p class="footer-copy">© 2026 地震哨兵 Dianguard · 地震预警信息源自中国地震台网中心（经公共聚合转发），请以官方渠道为准。</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
