@@ -40,8 +40,8 @@ android {
         applicationId = "com.dianguard.app"
         minSdk = 21
         targetSdk = 34
-        versionCode = 23
-        versionName = "1.3.0"
+        versionCode = 24
+        versionName = "1.3.1"
 
         vectorDrawables {
             useSupportLibrary = true
