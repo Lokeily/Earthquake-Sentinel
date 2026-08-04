@@ -120,18 +120,6 @@ class CoreLogicTest {
         assertNull(parseEew("""{"EventID":"t3","Latitude":25.0}"""))
     }
 
-    // ===================== warningLevel (震级) =====================
-
-    @Test fun warningLevelBlue() = assertEquals(WarningLevel.BLUE, warningLevel(3.5))
-    @Test fun warningLevelBlueUpper() = assertEquals(WarningLevel.BLUE, warningLevel(3.99))
-    @Test fun warningLevelYellow() = assertEquals(WarningLevel.YELLOW, warningLevel(4.0))
-    @Test fun warningLevelYellowUpper() = assertEquals(WarningLevel.YELLOW, warningLevel(4.99))
-    @Test fun warningLevelOrange() = assertEquals(WarningLevel.ORANGE, warningLevel(5.0))
-    @Test fun warningLevelOrangeUpper() = assertEquals(WarningLevel.ORANGE, warningLevel(5.99))
-    @Test fun warningLevelRed() = assertEquals(WarningLevel.RED, warningLevel(6.0))
-    @Test fun warningLevelRedStrong() = assertEquals(WarningLevel.RED, warningLevel(8.0))
-    @Test fun warningLevelNone() = assertEquals(WarningLevel.NONE, warningLevel(0.0))
-
     // ===================== warningLevelByIntensity（用户所在地烈度，官方标准 7/5/3 分界） =====================
     // 中国地震局标准：红 ≥ 7°（灾害性）｜橙 5–6°（灾害性）｜黄 3–4°（告知性）｜蓝 < 3°（告知性）
 

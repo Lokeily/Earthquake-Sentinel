@@ -195,28 +195,23 @@ fun makeQuakeKey(e: Eew): String {
 }
 
 /**
- * 预警等级（按震级，对齐中国地震预警 红/橙/黄/蓝 四级标准）。
- * 红=6级以上（强破坏），橙=5-6级（破坏），黄=4-5级（强有感），蓝=4级以下（有感），其余不提示。
- */
-enum class WarningLevel { RED, ORANGE, YELLOW, BLUE, NONE }
-
-fun warningLevel(magnitude: Double): WarningLevel = when {
-    magnitude >= 6.0 -> WarningLevel.RED
-    magnitude >= 5.0 -> WarningLevel.ORANGE
-    magnitude >= 4.0 -> WarningLevel.YELLOW
-    magnitude >= 0.1 -> WarningLevel.BLUE
-    else -> WarningLevel.NONE
-}
-
-/**
- * 按【用户所在地预估烈度】划分预警等级，对齐中国地震局及省级地震局官方标准
- * （本地预估烈度分级，非震级）：
+ * 预警等级（按【用户所在地预估烈度】划分，中国地震局官方标准）：
  *   Ⅰ级 红 ≥ 7°（灾害性预警）
  *   Ⅱ级 橙 5–6°（灾害性预警）
  *   Ⅲ级 黄 3–4°（告知性预警）
  *   Ⅳ级 蓝 < 3°（告知性预警）
- * 与 warningLevel（按震级）不同，本函数使等级、配色、破坏描述、语音分级四者
- * 与用户实际感受一致。
+ * NONE 仅用于“无有效烈度数据”的占位（如历史记录缺失烈度时），不参与正常分级。
+ */
+enum class WarningLevel { RED, ORANGE, YELLOW, BLUE, NONE }
+
+/**
+ * 按【用户所在地预估烈度】划分预警等级，对齐中国地震局及省级地震局官方标准：
+ *   Ⅰ级 红 ≥ 7°（灾害性预警）
+ *   Ⅱ级 橙 5–6°（灾害性预警）
+ *   Ⅲ级 黄 3–4°（告知性预警）
+ *   Ⅳ级 蓝 < 3°（告知性预警）
+ * 注：官方同时规定，通常仅当预估震级 > 4 级或预估震中烈度 > 5 度时才对外发布预警；
+ * 本函数只负责把已计算出的本地预估烈度映射为四级，触发门槛由调用方（EewAlertManager）控制。
  */
 fun warningLevelByIntensity(siteIntensity: Double): WarningLevel = when {
     siteIntensity >= 7.0 -> WarningLevel.RED

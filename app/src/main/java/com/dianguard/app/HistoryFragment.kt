@@ -124,7 +124,7 @@ class HistoryFragment : Fragment() {
     }
 
     private fun bindFeatureCard(r: QuakeRecord) {
-        val level = warningLevel(r.magnitude)
+        val level = recordLevel(r)
         val levelColor = ContextCompat.getColor(requireContext(), level.colorRes())
 
         featureAccent.setBackgroundColor(levelColor)
@@ -150,10 +150,12 @@ class HistoryFragment : Fragment() {
         meta.text = "发震时刻：${formatOriginTime(r.originTime, r.timeMs)}"
 
         val mag = r.magnitude
-        val level = warningLevel(mag)
+        val level = recordLevel(r)
         val levelColor = ContextCompat.getColor(requireContext(), level.colorRes())
 
-        magnitude.text = if (level == WarningLevel.BLUE && mag >= 0.1 && mag < 3.0) {
+        // 等级按本地预估烈度（官方标准）：BLUE（<3°）即轻微，显示「轻微地震」小标签；
+        // 无有效烈度（NONE）时回退按震级数字展示
+        magnitude.text = if (level == WarningLevel.BLUE) {
             "轻微\n地震"
         } else if (mag > 0) {
             "%.1f".format(mag)
@@ -179,6 +181,17 @@ class HistoryFragment : Fragment() {
             else -> r.intensity
         }
         return "预警时间${eta}秒，预估烈度${intensity}度"
+    }
+
+    /**
+     * 历史记录等级：统一按【预估烈度】分级（中国地震局官方标准，非震级）。
+     * 历史记录的 intensity 形如「约5.1」「-」「5」等，解析出数值后走
+     * warningLevelByIntensity；无法解析（如备用源速报无本地烈度）时返回 NONE（灰色占位）。
+     */
+    private fun recordLevel(r: QuakeRecord): WarningLevel {
+        val t = r.intensity.trim().removePrefix("约").trim()
+        val v = t.toDoubleOrNull()
+        return if (v != null && v > 0) warningLevelByIntensity(v) else WarningLevel.NONE
     }
 
     private fun formatOriginTime(originTime: String, fallbackMs: Long): String {
