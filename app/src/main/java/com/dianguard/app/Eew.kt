@@ -205,7 +205,26 @@ fun makeQuakeKey(e: Eew): String {
 enum class WarningLevel { RED, ORANGE, YELLOW, BLUE, NONE }
 
 /**
- * 按【用户所在地预估烈度】划分预警等级，对齐中国地震局及省级地震局官方标准：
+ * 按【震级】划分预警等级，用于**历史记录列表**展示地震本身的能量规模
+ * （对齐王暾团队"地震预警"App 与官方震级分类标准）：
+ *   红 ≥ 6.0 级（强震，破坏性强）
+ *   橙 5.0 – 5.9 级（中强震偏强，可造成破坏）
+ *   黄 3.0 – 4.9 级（有感地震）
+ *   蓝 < 3.0 级（弱震，一般不易察觉）
+ * 一次地震只有一个震级，因此列表颜色代表"这场地震本身有多强"；
+ * 与 warningLevelByIntensity（按用户所在地预估烈度，用于倒计时告警弹窗）是两套独立标准。
+ */
+fun warningLevel(magnitude: Double): WarningLevel = when {
+    magnitude >= 6.0 -> WarningLevel.RED
+    magnitude >= 5.0 -> WarningLevel.ORANGE
+    magnitude >= 3.0 -> WarningLevel.YELLOW
+    magnitude > 0.0 -> WarningLevel.BLUE
+    else -> WarningLevel.NONE
+}
+
+/**
+ * 按【用户所在地预估烈度】划分预警等级，用于**倒计时告警弹窗**，对齐中国地震局及
+ * 省级地震局官方标准（烈度 = 地震波传到用户所在位置的影响程度）：
  *   Ⅰ级 红 ≥ 7°（灾害性预警）
  *   Ⅱ级 橙 5–6°（灾害性预警）
  *   Ⅲ级 黄 3–4°（告知性预警）

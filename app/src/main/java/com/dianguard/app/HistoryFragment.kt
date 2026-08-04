@@ -153,8 +153,7 @@ class HistoryFragment : Fragment() {
         val level = recordLevel(r)
         val levelColor = ContextCompat.getColor(requireContext(), level.colorRes())
 
-        // 等级按本地预估烈度（官方标准）：BLUE（<3°）即轻微，显示「轻微地震」小标签；
-        // 无有效烈度（NONE）时回退按震级数字展示
+        // 等级按震级（王暾团队标准）：BLUE（<3.0 弱震）显示「轻微地震」小标签
         magnitude.text = if (level == WarningLevel.BLUE) {
             "轻微\n地震"
         } else if (mag > 0) {
@@ -184,15 +183,13 @@ class HistoryFragment : Fragment() {
     }
 
     /**
-     * 历史记录等级：统一按【预估烈度】分级（中国地震局官方标准，非震级）。
-     * 历史记录的 intensity 形如「约5.1」「-」「5」等，解析出数值后走
-     * warningLevelByIntensity；无法解析（如备用源速报无本地烈度）时返回 NONE（灰色占位）。
+     * 历史记录等级：按【震级】分级（王暾团队"地震预警"App 标准）。
+     * 历史列表展示全国各地地震，颜色代表"这场地震本身有多强"（一次地震只有一个震级）：
+     *   红 ≥6.0 / 橙 5.0-5.9 / 黄 3.0-4.9 / 蓝 <3.0（弱震）。
+     * 注意：这与倒计时告警弹窗按【用户所在地预估烈度】分级（warningLevelByIntensity）
+     * 是两套独立标准——列表看震级，弹窗看烈度。
      */
-    private fun recordLevel(r: QuakeRecord): WarningLevel {
-        val t = r.intensity.trim().removePrefix("约").trim()
-        val v = t.toDoubleOrNull()
-        return if (v != null && v > 0) warningLevelByIntensity(v) else WarningLevel.NONE
-    }
+    private fun recordLevel(r: QuakeRecord): WarningLevel = warningLevel(r.magnitude)
 
     private fun formatOriginTime(originTime: String, fallbackMs: Long): String {
         if (originTime.isBlank()) return dateFmt.format(Date(fallbackMs))
