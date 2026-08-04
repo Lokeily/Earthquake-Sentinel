@@ -110,6 +110,9 @@ object HistoryFetcher {
 
             val otMs = parseChinaTime(timeStr)
             val key = "cenc_eq|$eventId"
+            // 自学习校准（v1.4.0）：CENC 官方目录即"最终震级"真值，
+            // 回填给融合校准样本库，驱动 EewFusion 源偏差学习。
+            FusionCalibration.fillGroundTruth(otMs, mag, lat, lon)
             val distKm = if (AppConfig.hasLocation)
                 haversineKm(AppConfig.homeLat, AppConfig.homeLon, lat, lon) else 0.0
 

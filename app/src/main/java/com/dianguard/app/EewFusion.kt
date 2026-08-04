@@ -161,7 +161,16 @@ object EewFusion {
     // ===== 核心融合算法 =====
 
     private fun fuse(reports: List<BufferedReport>, quakeKey: String): FusionResult {
-        val mags = reports.map { it.eew.magnitude }
+        // 自学习校准（v1.4.0）：每源震级先经 FusionCalibration 修正（M' = M − μ，
+        // 样本数 ≥10 才启用），再参与融合——让引擎从历史真值中学习各源系统性偏差。
+        // 采样：无论是否修正，都记录本源的震级快照，供后续真值回填学习。
+        val mags = reports.map { r ->
+            FusionCalibration.collectSample(
+                quakeKey, r.sourceId, r.eew.magnitude, r.receivedMs,
+                r.eew.latitude, r.eew.longitude
+            )
+            FusionCalibration.correctMagnitude(r.sourceId, r.eew.magnitude)
+        }
         val sourceIds = reports.map { it.sourceId }.distinct()
 
         // 震级：加权中位数（抗异常值）
