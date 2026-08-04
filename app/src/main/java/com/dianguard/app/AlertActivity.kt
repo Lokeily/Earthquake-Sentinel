@@ -80,10 +80,11 @@ class AlertActivity : AppCompatActivity() {
                 // 真实场景：震级随报数递增（首报 M4.0 → 终报 M7.0）。
                 // 若新震级导致预警等级变化，实时更新全屏配色、语音短语和行动指引。
                 val newMag = intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)
-                val newLevel = warningLevel(newMag)
+                val newIntensity = intent.getStringExtra(EewService.EXTRA_INTENSITY)?.toDoubleOrNull() ?: 0.0
+                val newLevel = warningLevelByIntensity(newIntensity)
                 val reportNum = intent.getIntExtra(EewService.EXTRA_REPORT_NUM, 0)
                 if (newLevel != currentLevel) {
-                    Log.i(TAG, "震级升级: $currentLevel → $newLevel (第${reportNum}报 M${newMag})")
+                    Log.i(TAG, "烈度变化: $currentLevel → $newLevel (第${reportNum}报 M${newMag} 烈度${"%.1f".format(newIntensity)})")
                     currentLevel = newLevel
                     tvLevel.text = currentLevel.label()
                     tvLevel.setTextColor(levelColor(currentLevel))
@@ -192,8 +193,9 @@ class AlertActivity : AppCompatActivity() {
         val place = ZhConvert.toSimplified(intent.getStringExtra(EewService.EXTRA_PLACE) ?: "未知地区")
         val mag = intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)
         val intensityStr = intent.getStringExtra(EewService.EXTRA_INTENSITY) ?: "-"
-        // v1.2.0：预警等级按震级划分，全软件统一
-        currentLevel = warningLevel(mag)
+        val siteIntensity = intensityStr.toDoubleOrNull() ?: 0.0
+        // 等级按用户脚下预估烈度划分（非震中震级）
+        currentLevel = warningLevelByIntensity(siteIntensity)
 
         tvPlace.text = place
         tvMag.text = magText(mag)

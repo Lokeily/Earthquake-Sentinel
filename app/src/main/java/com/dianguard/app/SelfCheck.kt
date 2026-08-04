@@ -70,13 +70,13 @@ object SelfCheck {
             )
         )
 
-        // 4. 参考位置是否已写入
+        // 4. 参考位置是否已写入（R5：未设置位置无法计算本地烈度，将无法开启预警监听）
         list.add(
             CheckItem(
                 "参考位置",
                 AppConfig.hasLocation,
                 if (AppConfig.hasLocation) "已设置：${AppConfig.locationName.ifBlank { "未命名" }}"
-                else "尚未获取，预警距离可能不准"
+                else "尚未获取，需先设置才能开启预警监听"
             )
         )
 

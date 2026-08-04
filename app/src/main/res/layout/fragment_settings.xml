@@ -129,33 +129,6 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="16dp" />
-
-        <!-- 远震小震提醒 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_card"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/sw_distant"
-                android:textColor="@color/ios_label"
-                android:textSize="15sp" />
-
-            <Switch
-                android:id="@+id/sw_distant"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <Space android:layout_width="match_parent" android:layout_height="16dp" />
-
         <!-- 外观 / 深色模式 -->
         <LinearLayout
             android:layout_width="match_parent"

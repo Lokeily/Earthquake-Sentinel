@@ -14,10 +14,9 @@ import androidx.appcompat.app.AppCompatActivity
 /**
  * 测试报警页 — v1.3.0 可配置渐进式模拟改版。
  *
- * - 去掉旧版四级试听卡片，统一为"完整模拟预警"入口
- * - 半遮蔽配置面板：首报震级、末报震级（同首报/固定值）、震源深度、震中距
+ * - 统一为"完整模拟预警"入口，点击弹出半遮蔽配置面板
+ * - 可配置：首报震级、末报震级（同首报/固定值）、震源深度、震中距
  * - 5 秒倒计时后触发，模拟真实地震预警从首报到终报的渐进升级全流程
- * - 底部保留"停止所有播放"按钮
  */
 class TestAlarmActivity : AppCompatActivity() {
 
@@ -42,13 +41,6 @@ class TestAlarmActivity : AppCompatActivity() {
         // 点击配置卡片 → 打开半遮蔽面板
         findViewById<View>(R.id.card_config).setOnClickListener { showConfigPanel() }
         findViewById<View>(R.id.btn_close_config).setOnClickListener { hideConfigPanel() }
-
-        // 停止按钮
-        findViewById<View>(R.id.btn_stop).setOnClickListener {
-            EewVoice.stopAll()
-            simScheduled = false
-            Toast.makeText(this, R.string.stopped, Toast.LENGTH_SHORT).show()
-        }
 
         // 初始化配置面板控件
         etFirstMag = findViewById(R.id.et_first_mag)
@@ -183,17 +175,17 @@ class TestAlarmActivity : AppCompatActivity() {
 
     /**
      * 启动渐进式模拟：
-     * 1. 以首报震级打开 AlertActivity
-     * 2. 若末报震级 > 首报震级，在 ETA 的 60% 时刻通过广播发送后续报，
-     *    触发 AlertActivity 内的震级升级过程（背景色/语音/指引全部联动）
+     * 以首报震级打开 AlertActivity 后，模拟真实地震中"新报文突然到达、
+     * 震级修正升级"的效果。末报 > 首报时自动拆分 1-2 次升级报，
+     * 每次触发 AlertActivity 内完整的震级升级响应（背景色/语音/指引联动）。
+     *
+     * 关键：升级时机和幅度都是随机的，类似真实场景中"突然收到修正报文"，而非可预测的定时事件。
      */
     private fun launchSim(
         firstMag: Double, finalMag: Double, depth: Double,
         distKm: Double, etaSec: Double, epiLat: Double, epiLon: Double
     ) {
         EewVoice.stopAll()
-
-        // 计算首报烈度
         val firstIntensity = "%.1f".format(estimateSiteIntensity(firstMag, distKm, depth))
 
         Toast.makeText(this, "正在定位模拟震中…", Toast.LENGTH_SHORT).show()
@@ -206,10 +198,10 @@ class TestAlarmActivity : AppCompatActivity() {
                 val fallback = AppConfig.locationName.ifBlank { "参考位置" }
                 "${fallback}附近${distKm.toInt()}km（模拟震中）"
             }
-
             val eventId = "SIM-${System.currentTimeMillis()}"
 
             runOnUiThread {
+                // 第1报：首报震级
                 val intent = Intent(this, AlertActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     putExtra(EewService.EXTRA_EVENT_ID, eventId)
@@ -223,27 +215,61 @@ class TestAlarmActivity : AppCompatActivity() {
                 }
                 startActivity(intent)
 
-                // 若末报震级 > 首报震级，在 ETA 的 60% 时刻发送后续报升级
-                if (finalMag > firstMag && etaSec > 2.0) {
-                    val delayMs = ((etaSec * 0.6) * 1000).toLong().coerceAtLeast(2000)
+                if (finalMag <= firstMag || etaSec <= 2.0) return@runOnUiThread
+
+                val delta = finalMag - firstMag
+                val lastReport = finalMag
+
+                if (delta > 2.5) {
+                    // 大跨度升级（如 4.0→7.0）：拆为两次后续报，模拟多次修正
+                    val midMag = firstMag + delta * (0.35 + Math.random() * 0.2)  // 中间值 35%-55%
+                    val midDelay = (etaSec * (0.3 + Math.random() * 0.25) * 1000).toLong().coerceAtLeast(1500)
+                    val finalDelay = (etaSec * (0.55 + Math.random() * 0.25) * 1000).toLong().coerceAtLeast(2500)
+
+                    val midEta = etaSec - midDelay / 1000.0
+                    val finalEta = etaSec - finalDelay / 1000.0
+                    val midIntensity = "%.1f".format(estimateSiteIntensity(midMag, distKm, depth))
                     val finalIntensity = "%.1f".format(estimateSiteIntensity(finalMag, distKm, depth))
+
+                    // 第2报（中间报告号）
                     handler.postDelayed({
-                        val refresh = Intent(EewService.ACTION_REFRESH).apply {
-                            putExtra(EewService.EXTRA_EVENT_ID, eventId)
-                            putExtra(EewService.EXTRA_MAG, finalMag)
-                            putExtra(EewService.EXTRA_PLACE, place)
-                            putExtra(EewService.EXTRA_DISTANCE, distKm)
-                            putExtra(EewService.EXTRA_ETA, etaSec * 0.4)  // 剩余 ETA
-                            putExtra(EewService.EXTRA_INTENSITY, finalIntensity)
-                            putExtra(EewService.EXTRA_DEPTH, depth)
-                            putExtra(EewService.EXTRA_REPORT_NUM, 2)
-                        }
-                        androidx.localbroadcastmanager.content.LocalBroadcastManager
-                            .getInstance(this@TestAlarmActivity).sendBroadcast(refresh)
+                        sendSimRefresh(eventId, midMag, place, distKm, midEta, midIntensity, depth, 2)
+                    }, midDelay)
+
+                    // 第3报（最终报告号）
+                    handler.postDelayed({
+                        sendSimRefresh(eventId, finalMag, place, distKm, finalEta, finalIntensity, depth, 3)
+                    }, finalDelay)
+                } else {
+                    // 小跨度升级（如 4.0→5.5）：单次修正
+                    val delayMs = (etaSec * (0.35 + Math.random() * 0.4) * 1000).toLong().coerceAtLeast(1500)
+                    val remainEta = etaSec - delayMs / 1000.0
+                    val lastIntensity = "%.1f".format(estimateSiteIntensity(lastReport, distKm, depth))
+                    handler.postDelayed({
+                        sendSimRefresh(eventId, lastReport, place, distKm, remainEta, lastIntensity, depth, 2)
                     }, delayMs)
                 }
             }
         }.start()
+    }
+
+    /** 发送模拟后续报广播 */
+    private fun sendSimRefresh(
+        eventId: String, mag: Double, place: String,
+        distKm: Double, eta: Double, intensity: String, depth: Double, reportNum: Int
+    ) {
+        val refresh = Intent(EewService.ACTION_REFRESH).apply {
+            putExtra(EewService.EXTRA_EVENT_ID, eventId)
+            putExtra(EewService.EXTRA_MAG, mag)
+            putExtra(EewService.EXTRA_PLACE, place)
+            putExtra(EewService.EXTRA_DISTANCE, distKm)
+            putExtra(EewService.EXTRA_ETA, eta)
+            putExtra(EewService.EXTRA_INTENSITY, intensity)
+            putExtra(EewService.EXTRA_DEPTH, depth)
+            putExtra(EewService.EXTRA_REPORT_NUM, reportNum)
+        }
+        androidx.localbroadcastmanager.content.LocalBroadcastManager
+            .getInstance(this@TestAlarmActivity).sendBroadcast(refresh)
     }
 
     override fun onDestroy() {

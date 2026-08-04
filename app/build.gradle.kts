@@ -11,19 +11,22 @@ val localProperties = Properties().apply {
     if (localFile.exists()) load(FileInputStream(localFile))
 }
 
-// BeeCLD 令牌：优先读 local.properties（不提交 Git），回退 gradle.properties（默认值）
-val beecldToken: String = localProperties.getProperty("beecld.token")
-    ?: (project.findProperty("beecld.token") as? String ?: "")
-
 android {
     signingConfigs {
         create("release") {
-            val keystorePath = localProperties.getProperty("dianguard.keystorePath")
+            // 签名凭据解析优先级（R5 安全修复：避免密码明文落盘）：
+            // 1) 环境变量（CI / 发布机注入，不落任何文件）→ 2) local.properties（本地开发，.gitignore 已忽略）
+            val env = System.getenv()
+            val keystorePath = env["DIANGUARD_KEYSTORE_PATH"]
+                ?: localProperties.getProperty("dianguard.keystorePath")
                 ?: (rootProject.projectDir.path + "/dianguard-release.jks")
             storeFile = file(keystorePath)
-            storePassword = localProperties.getProperty("dianguard.storePassword")
-            keyAlias = localProperties.getProperty("dianguard.keyAlias")
-            keyPassword = localProperties.getProperty("dianguard.keyPassword")
+            storePassword = env["DIANGUARD_STORE_PASSWORD"]
+                ?: localProperties.getProperty("dianguard.storePassword")
+            keyAlias = env["DIANGUARD_KEY_ALIAS"]
+                ?: localProperties.getProperty("dianguard.keyAlias")
+            keyPassword = env["DIANGUARD_KEY_PASSWORD"]
+                ?: localProperties.getProperty("dianguard.keyPassword")
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
@@ -37,15 +40,12 @@ android {
         applicationId = "com.dianguard.app"
         minSdk = 21
         targetSdk = 34
-        versionCode = 22
-        versionName = "1.2.0"
+        versionCode = 23
+        versionName = "1.3.0"
 
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        // BeeCLD·2v8 令牌：构建时从 Gradle 属性注入 BuildConfig，避免硬编码在源码中
-        buildConfigField("String", "BEECLD_TOKEN", "\"$beecldToken\"")
     }
 
     buildTypes {

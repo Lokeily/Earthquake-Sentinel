@@ -15,7 +15,7 @@
     <string name="settings_location_hint">点击下方按钮获取设备定位；位置由手机 GPS 自动判定，不可手动修改</string>
     <string name="location_display_empty">尚未获取位置，请点击上方“获取当前位置”</string>
     <string name="settings_threshold_title">预警阈值（仅烈度）</string>
-    <string name="settings_threshold_hint">仅达到所选烈度才会全屏告警：2°轻微有感（推荐）/ 3°明显有感 / 4°强烈有感。</string>
+    <string name="settings_threshold_hint">仅达到所选烈度才会全屏告警：3°明显有感（推荐）/ 2°轻微有感（更灵敏，但会频繁打扰）/ 4°强烈有感。默认 3°可避免告警疲劳。</string>
     <string name="settings_hint">测试告警会立即弹出全屏倒计时与警报声，用于验证效果，无需等待真实地震。</string>
     <string name="settings_theme_title">外观</string>
     <string name="settings_theme_hint">深色档位使用纯黑背景：OLED / AMOLED 屏上黑色像素直接熄灭，既省电又能减少长期常亮的烧屏风险，适合把旧手机插电常驻当哨兵的用法。</string>
@@ -24,13 +24,13 @@
     <string name="btn_loc">获取当前位置</string>
     <string name="sw_distant">远震小震提醒（通知栏）</string>
     <string-array name="intensity_threshold_entries">
-        <item>2° 轻微有感（推荐）</item>
-        <item>3° 明显有感</item>
+        <item>3° 明显有感（推荐）</item>
+        <item>2° 轻微有感（更灵敏）</item>
         <item>4° 强烈有感</item>
     </string-array>
     <integer-array name="intensity_threshold_values">
-        <item>2</item>
         <item>3</item>
+        <item>2</item>
         <item>4</item>
     </integer-array>
     <string-array name="theme_mode_entries">

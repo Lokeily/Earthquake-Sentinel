@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
@@ -32,7 +33,6 @@ class SettingsFragment : Fragment() {
     private lateinit var tvIntensityTrigger: TextView
     private lateinit var tvThemeTrigger: TextView
     private lateinit var tvLocationDisplay: TextView
-    private lateinit var swDistant: Switch
     private lateinit var btnLoc: Button
     private lateinit var btnTest: Button
     private lateinit var btnSelfCheck: Button
@@ -58,7 +58,6 @@ class SettingsFragment : Fragment() {
         tvIntensityTrigger = root.findViewById(R.id.tv_intensity_trigger)
         tvThemeTrigger = root.findViewById(R.id.tv_theme_trigger)
         tvLocationDisplay = root.findViewById(R.id.tv_location_display)
-        swDistant = root.findViewById(R.id.sw_distant)
         btnLoc = root.findViewById(R.id.btn_loc)
         btnTest = root.findViewById(R.id.btn_test)
         btnSelfCheck = root.findViewById(R.id.btn_selfcheck)
@@ -71,17 +70,6 @@ class SettingsFragment : Fragment() {
         setupIntensitySpinner()
         setupThemeSpinner()
         refreshLocationDisplay()
-        swDistant.isChecked = AppConfig.distantNotify
-
-        swDistant.setOnCheckedChangeListener { _, on ->
-            AppConfig.distantNotify = on
-            Toast.makeText(
-                requireContext(),
-                if (on) "已开启：未达阈值的地震将通过通知栏提醒"
-                else "已关闭：仅达阈值的地震才会提醒",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
 
         btnLoc.setOnClickListener { fetchCurrentLocation() }
         btnTest.setOnClickListener {
@@ -114,7 +102,8 @@ class SettingsFragment : Fragment() {
         val values = resources.getIntArray(R.array.intensity_threshold_values)
         val saved = AppConfig.minIntensity.toInt()
         var idx = values.indexOf(saved)
-        if (idx < 0) idx = values.indexOf(2)  // 默认/推荐：2° 轻微有感
+        // R5：默认/推荐 3°（明显有感）；2° 保留为高级选项（更灵敏但易频繁打扰）
+        if (idx < 0) idx = values.indexOf(3)
         spinnerIntensity.setSelection(idx)
         tvIntensityTrigger.text = entries[idx]
 
@@ -215,7 +204,6 @@ class SettingsFragment : Fragment() {
     }
 
     private fun saveConfig() {
-        AppConfig.distantNotify = swDistant.isChecked
     }
 
     /** 清空预警历史记录（带确认弹窗） */

@@ -100,6 +100,7 @@ object QuakeHistory {
         synchronized(lock) {
             val list = loadLocked().toMutableList()
             var added = 0
+            var changed = false
             for (record in records) {
                 val idx = list.indexOfFirst { it.key == record.key }
                 if (idx >= 0) {
@@ -111,12 +112,16 @@ object QuakeHistory {
                         backup = old.backup && record.backup,
                         sourceName = if (old.backup && !record.backup) record.sourceName else old.sourceName
                     )
+                    changed = true
                 } else {
                     list.add(record)
                     added++
+                    changed = true
                 }
             }
-            if (added == 0) return 0
+            // 修复：批内全部为已有 key 的 upsert 更新（无新增）时，changed 为 true 仍须落盘，
+            // 否则修正报（震级/烈度更新）会丢失；仅当整批确实无任何变化时才跳过保存。
+            if (!changed) return 0
             saveLocked(list)
             return added
         }

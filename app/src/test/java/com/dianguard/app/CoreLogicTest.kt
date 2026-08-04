@@ -195,4 +195,73 @@ class CoreLogicTest {
         // 震级非法 → 0.0，不触发
         assertEquals(0.0, estimateSiteIntensity(0.0, 100.0, 10.0), 0.01)
     }
+
+    // ===================== parsePodrisEew（R5-1：解析器已接入 handleRaw 回退链） =====================
+
+    @Test fun parsePodrisValid() {
+        val raw = """{"event_type":"EEW","event_id":"podris-001","report_num":2,
+            "magnitude":6.8,"location":[28.5,104.6],"depth":10,
+            "region":"四川宜宾","time":"2026-08-05 00:00:00","intensity":8}"""
+        val eew = parsePodrisEew(raw)
+        assertNotNull(eew)
+        assertEquals("podris-001", eew!!.eventId)
+        assertEquals(6.8, eew.magnitude, 0.01)
+        assertEquals(28.5, eew.latitude, 0.01)
+        assertEquals(104.6, eew.longitude, 0.01)
+        assertEquals("四川宜宾", eew.hypoCenter)
+        assertEquals(2, eew.reportNum)
+    }
+
+    @Test fun parsePodrisWrongEventType() {
+        // 非 EEW 类型（心跳/状态帧）必须返回 null，不得被误解析
+        val raw = """{"event_type":"heartbeat","data":"ok"}"""
+        assertNull(parsePodrisEew(raw))
+    }
+
+    @Test fun parsePodrisMissingLocation() {
+        assertNull(parsePodrisEew("""{"event_type":"EEW","magnitude":5.0}"""))
+    }
+
+    @Test fun parsePodrisInvalidJson() {
+        assertNull(parsePodrisEew("not json"))
+    }
+
+    @Test fun parsePodrisInvalidCoords() {
+        val raw = """{"event_type":"EEW","location":[200,100],"magnitude":5.0}"""
+        assertNull(parsePodrisEew(raw))
+    }
+
+    @Test fun parsePodrisZeroMag() {
+        // 震级 ≤ 0（心跳/非预警帧）→ null
+        val raw = """{"event_type":"EEW","location":[28.5,104.6],"magnitude":0}"""
+        assertNull(parsePodrisEew(raw))
+    }
+
+    // ===================== parseIclEew（ICL 减灾所官方 HTTP 轮询源，v1.3.0） =====================
+
+    @Test fun parseIclValid() {
+        val obj = org.json.JSONObject("""{"eventId":"icl-abc","updates":3,
+            "latitude":28.5,"longitude":104.6,"depth":5,
+            "epicenter":"四川宜宾","startAt":1785694905000,"magnitude":5.1,"epiIntensity":7}""")
+        val eew = parseIclEew(obj)
+        assertNotNull(eew)
+        assertEquals("icl-abc", eew!!.eventId)
+        assertEquals(5.1, eew.magnitude, 0.01)
+        assertEquals(3, eew.reportNum)
+        assertEquals("四川宜宾", eew.hypoCenter)
+        // startAt 毫秒时间戳 → 本地时区（Asia/Shanghai）字符串，仅断言非空
+        assertTrue(eew.originTime.isNotBlank())
+    }
+
+    @Test fun parseIclMissingEventId() {
+        assertNull(parseIclEew(org.json.JSONObject("""{"magnitude":5.0,"latitude":28.5,"longitude":104.6}""")))
+    }
+
+    @Test fun parseIclInvalidCoords() {
+        assertNull(parseIclEew(org.json.JSONObject("""{"eventId":"x","magnitude":5.0,"latitude":999,"longitude":104.6}""")))
+    }
+
+    @Test fun parseIclZeroMag() {
+        assertNull(parseIclEew(org.json.JSONObject("""{"eventId":"x","magnitude":0,"latitude":28.5,"longitude":104.6}""")))
+    }
 }

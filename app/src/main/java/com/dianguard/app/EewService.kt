@@ -52,16 +52,13 @@ class EewService : Service() {
         const val CHANNEL_DISTANT_ID = "dianguard_distant"
         const val CHANNEL_ALERT_ID = "dianguard_alert"
         const val NOTIFY_ID = 1
-        const val DISTANT_NOTIFY_ID_BASE = 1000
+        const val DISTANT_NOTIFY_ID = 1000      // 远震通知固定 ID（新地震覆盖旧通知）
 
         // ===== 广播 Action / Extra =====
         const val ACTION_STATUS = "com.dianguard.app.STATUS"
         const val ACTION_REFRESH = "com.dianguard.app.REFRESH"
         const val ACTION_FRESHNESS = "com.dianguard.app.FRESHNESS"
         const val EXTRA_LAST_DATA_MS = "last_data_ms"
-
-        const val DISTANT_NOTIFY_GROUP = "dianguard_distant_group"
-        const val DISTANT_NOTIFY_SUMMARY_ID = 999
 
         const val ACTION_ALERT_DISMISSED = "com.dianguard.app.ALERT_DISMISSED"
         const val ACTION_HISTORY_CHANGED = "com.dianguard.app.HISTORY_CHANGED"
@@ -146,6 +143,7 @@ class EewService : Service() {
     // 委托对象（包内可见，供 ConnectionManager/AlertManager 互访）
     internal lateinit var connMgr: EewConnectionManager
     internal lateinit var alertMgr: EewAlertManager
+    internal lateinit var iclPoller: IclPoller
 
     // ===== 生命周期管理 =====
 
@@ -179,6 +177,7 @@ class EewService : Service() {
         AppConfig.init(this)
         connMgr = EewConnectionManager(this)
         alertMgr = EewAlertManager(this)
+        iclPoller = IclPoller { eew, src -> alertMgr.handleRawIcl(eew, src) }
         createNotificationChannels()
         acquireWakeLock()
         startWakeLockRefresh()
@@ -210,6 +209,7 @@ class EewService : Service() {
             Log.i(TAG, "服务已在运行，跳过重复连接 (${connMgr.connections.size} 个源)")
         }
         startLocationRefresh()
+        iclPoller.start()
         return START_STICKY
     }
 
@@ -218,6 +218,7 @@ class EewService : Service() {
         connMgr.stopNetworkMonitor()
         connMgr.destroy()
         alertMgr.destroy()
+        iclPoller.stop()
         stopLocationRefresh()
         stopWakeLockRefresh()
         stopDedupCleanup()

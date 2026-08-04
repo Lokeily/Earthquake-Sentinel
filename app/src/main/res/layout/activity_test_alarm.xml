@@ -8,7 +8,6 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
         android:scrollbars="none">
 
         <LinearLayout
@@ -75,17 +74,6 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <Space android:layout_width="match_parent" android:layout_height="0dp"
-                android:layout_weight="1" />
-
-            <!-- 底部按钮区 -->
-            <Button android:id="@+id/btn_stop"
-                android:layout_width="match_parent" android:layout_height="50dp"
-                android:background="@drawable/bg_button_danger"
-                android:text="停止所有播放" android:textColor="#FFFFFF"
-                android:textSize="15sp" android:textStyle="bold"
-                android:textAllCaps="false" android:stateListAnimator="@null" />
-
         </LinearLayout>
     </ScrollView>
 
@@ -93,128 +81,131 @@
     <LinearLayout android:id="@+id/overlay_config"
         android:layout_width="match_parent" android:layout_height="match_parent"
         android:orientation="vertical" android:visibility="gone"
-        android:clickable="true" android:focusable="true"
         android:background="#CC000000">
 
-        <!-- 点击空白处不关闭 -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="1" android:clickable="true" />
 
-        <!-- 配置面板 -->
-        <LinearLayout android:id="@+id/panel_config"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="vertical" android:background="@color/ios_grouped_bg"
-            android:padding="20dp" android:clickable="true"
-            android:focusable="true">
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
 
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal" android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
+            <LinearLayout android:id="@+id/panel_config"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:background="@color/ios_grouped_bg"
+                android:padding="20dp" android:clickable="true"
+                android:focusable="true">
 
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:text="模拟预警配置"
-                    android:textColor="@color/ios_label" android:textSize="18sp" android:textStyle="bold" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
 
-                <TextView android:id="@+id/btn_close_config"
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="✕" android:textColor="@color/ios_label_secondary"
-                    android:textSize="20sp" android:padding="8dp"
-                    android:clickable="true" android:focusable="true" />
-            </LinearLayout>
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="模拟预警配置"
+                        android:textColor="@color/ios_label" android:textSize="18sp" android:textStyle="bold" />
 
-            <!-- 首报震级 -->
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="首报震级" android:textColor="@color/ios_label"
-                android:textSize="14sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/btn_close_config"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="✕" android:textColor="@color/ios_label_secondary"
+                        android:textSize="20sp" android:padding="8dp"
+                        android:clickable="true" android:focusable="true" />
+                </LinearLayout>
 
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal" android:layout_marginTop="6dp"
-                android:gravity="center_vertical">
+                <!-- 首报震级 -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="首报震级" android:textColor="@color/ios_label"
+                    android:textSize="14sp" android:textStyle="bold" />
 
-                <EditText android:id="@+id/et_first_mag"
-                    android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="44dp" android:background="@drawable/bg_input"
-                    android:paddingHorizontal="14dp" android:text="5.0"
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:layout_marginTop="6dp"
+                    android:gravity="center_vertical">
+
+                    <EditText android:id="@+id/et_first_mag"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="44dp" android:background="@drawable/bg_input"
+                        android:paddingHorizontal="14dp" android:text="5.0"
+                        android:textColor="@color/ios_label" android:textSize="15sp"
+                        android:inputType="numberDecimal" android:hint="3.0 - 8.0"
+                        android:maxLines="1" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="级（下限 3.0 / 上限 8.0）"
+                        android:textColor="@color/ios_label_secondary" android:textSize="12sp" />
+                </LinearLayout>
+
+                <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+                <!-- 末报震级 -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="末报震级（最终地震震级）" android:textColor="@color/ios_label"
+                    android:textSize="14sp" android:textStyle="bold" />
+
+                <RadioGroup android:id="@+id/rg_final_type"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:orientation="horizontal">
+
+                    <RadioButton android:id="@+id/rb_same"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="40dp" android:text="同首报"
+                        android:textColor="@color/ios_label" android:textSize="14sp"
+                        android:checked="true" android:buttonTint="@color/ios_blue" />
+
+                    <RadioButton android:id="@+id/rb_custom"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="40dp" android:text="固定值"
+                        android:textColor="@color/ios_label" android:textSize="14sp"
+                        android:buttonTint="@color/ios_blue" />
+                </RadioGroup>
+
+                <EditText android:id="@+id/et_final_mag"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:layout_marginTop="4dp" android:background="@drawable/bg_input"
+                    android:paddingHorizontal="14dp" android:visibility="gone"
                     android:textColor="@color/ios_label" android:textSize="15sp"
                     android:inputType="numberDecimal" android:hint="3.0 - 8.0"
                     android:maxLines="1" />
 
+                <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+                <!-- 震源深度 -->
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp" android:text="级（下限 3.0 / 上限 8.0）"
-                    android:textColor="@color/ios_label_secondary" android:textSize="12sp" />
+                    android:text="震源深度（默认随机）" android:textColor="@color/ios_label"
+                    android:textSize="14sp" android:textStyle="bold" />
+
+                <EditText android:id="@+id/et_depth"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:layout_marginTop="6dp" android:background="@drawable/bg_input"
+                    android:paddingHorizontal="14dp" android:textColor="@color/ios_label"
+                    android:textSize="15sp" android:inputType="numberDecimal"
+                    android:hint="随机（下限5 / 上限50 km）" android:maxLines="1" />
+
+                <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+                <!-- 震中距 -->
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="震中距（默认随机）" android:textColor="@color/ios_label"
+                    android:textSize="14sp" android:textStyle="bold" />
+
+                <EditText android:id="@+id/et_distance"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:layout_marginTop="6dp" android:background="@drawable/bg_input"
+                    android:paddingHorizontal="14dp" android:textColor="@color/ios_label"
+                    android:textSize="15sp" android:inputType="numberDecimal"
+                    android:hint="随机（下限0 / 上限1000 km）" android:maxLines="1" />
+
+                <Space android:layout_width="match_parent" android:layout_height="20dp" />
+
+                <!-- 开始模拟按钮 -->
+                <Button android:id="@+id/btn_start_sim"
+                    android:layout_width="match_parent" android:layout_height="54dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:text="开始模拟（5 秒后触发）" android:textColor="#FFFFFF"
+                    android:textSize="16sp" android:textStyle="bold"
+                    android:textAllCaps="false" android:stateListAnimator="@null" />
+
             </LinearLayout>
-
-            <Space android:layout_width="match_parent" android:layout_height="16dp" />
-
-            <!-- 末报震级 -->
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="末报震级（最终地震震级）" android:textColor="@color/ios_label"
-                android:textSize="14sp" android:textStyle="bold" />
-
-            <RadioGroup android:id="@+id/rg_final_type"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp" android:orientation="horizontal">
-
-                <RadioButton android:id="@+id/rb_same"
-                    android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="40dp" android:text="同首报"
-                    android:textColor="@color/ios_label" android:textSize="14sp"
-                    android:checked="true" android:buttonTint="@color/ios_blue" />
-
-                <RadioButton android:id="@+id/rb_custom"
-                    android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="40dp" android:text="固定值"
-                    android:textColor="@color/ios_label" android:textSize="14sp"
-                    android:buttonTint="@color/ios_blue" />
-            </RadioGroup>
-
-            <EditText android:id="@+id/et_final_mag"
-                android:layout_width="match_parent" android:layout_height="44dp"
-                android:layout_marginTop="4dp" android:background="@drawable/bg_input"
-                android:paddingHorizontal="14dp" android:visibility="gone"
-                android:textColor="@color/ios_label" android:textSize="15sp"
-                android:inputType="numberDecimal" android:hint="3.0 - 8.0"
-                android:maxLines="1" />
-
-            <Space android:layout_width="match_parent" android:layout_height="16dp" />
-
-            <!-- 震源深度 -->
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="震源深度（默认随机）" android:textColor="@color/ios_label"
-                android:textSize="14sp" android:textStyle="bold" />
-
-            <EditText android:id="@+id/et_depth"
-                android:layout_width="match_parent" android:layout_height="44dp"
-                android:layout_marginTop="6dp" android:background="@drawable/bg_input"
-                android:paddingHorizontal="14dp" android:textColor="@color/ios_label"
-                android:textSize="15sp" android:inputType="numberDecimal"
-                android:hint="随机（下限5 / 上限50 km）" android:maxLines="1" />
-
-            <Space android:layout_width="match_parent" android:layout_height="16dp" />
-
-            <!-- 震中距 -->
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="震中距（默认随机）" android:textColor="@color/ios_label"
-                android:textSize="14sp" android:textStyle="bold" />
-
-            <EditText android:id="@+id/et_distance"
-                android:layout_width="match_parent" android:layout_height="44dp"
-                android:layout_marginTop="6dp" android:background="@drawable/bg_input"
-                android:paddingHorizontal="14dp" android:textColor="@color/ios_label"
-                android:textSize="15sp" android:inputType="numberDecimal"
-                android:hint="随机（下限0 / 上限1000 km）" android:maxLines="1" />
-
-            <Space android:layout_width="match_parent" android:layout_height="20dp" />
-
-            <!-- 开始模拟按钮 -->
-            <Button android:id="@+id/btn_start_sim"
-                android:layout_width="match_parent" android:layout_height="54dp"
-                android:background="@drawable/bg_button_primary"
-                android:text="开始模拟（5 秒后触发）" android:textColor="#FFFFFF"
-                android:textSize="16sp" android:textStyle="bold"
-                android:textAllCaps="false" android:stateListAnimator="@null" />
-
-        </LinearLayout>
+        </ScrollView>
     </LinearLayout>
 
 </FrameLayout>

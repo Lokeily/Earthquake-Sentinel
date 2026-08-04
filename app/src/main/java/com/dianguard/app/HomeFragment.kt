@@ -271,6 +271,21 @@ class HomeFragment : Fragment() {
                 showDisclaimerBeforeEnable()
                 return
             }
+            // R5 修复：必须已设定参考位置才能开启预警监听。
+            // 原因：烈度告警依赖「用户所在地」的烈度衰减计算，未设位置时无法判定
+            // 是否告警；旧版静默回退到云南普洱兜底坐标会造成错误距离与误报。
+            if (!AppConfig.hasLocation) {
+                AlertDialog.Builder(requireContext())
+                    .setTitle("请先设置参考位置")
+                    .setMessage("地震预警需要知道您所在的位置，才能计算地震到您这里的距离与预估烈度。\n\n" +
+                        "请到「设置」页点击“获取当前位置”，然后再开启预警监听。")
+                    .setPositiveButton("前往设置") { _, _ ->
+                        (requireActivity() as? MainActivity)?.selectTab(MainActivity.TAB_SETTINGS)
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+                return
+            }
             // 系统自检 → 确认 → 播放提示音 → 启动服务
             SelfCheck.showDialog(requireContext()) {
                 playServiceAudio(R.raw.enable_notify)

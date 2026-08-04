@@ -165,22 +165,6 @@ class EewConnectionManager(val service: EewService) {
                 return
             }
             connectedSources.add(sourceId)
-            // FAN Studio 需在连接建立后 5 秒内发送鉴权帧，否则被服务端以 1008 关闭
-            if (sourceId == "fanstudio_cea" &&
-                FAN_APP_ID.isNotEmpty() && FAN_KEY.isNotEmpty()
-            ) {
-                try {
-                    val auth = JSONObject().apply {
-                        put("type", "auth")
-                        put("appId", FAN_APP_ID)
-                        put("key", FAN_KEY)
-                    }.toString()
-                    webSocket.send(auth)
-                    Log.i(EewService.TAG, "[$sourceId] 已发送 FAN Studio 鉴权帧")
-                } catch (e: Exception) {
-                    Log.w(EewService.TAG, "FAN 鉴权帧发送失败($sourceId): ${e.message}")
-                }
-            }
             val c = connections[sourceId]
             if (c != null) {
                 c.cancelPending()

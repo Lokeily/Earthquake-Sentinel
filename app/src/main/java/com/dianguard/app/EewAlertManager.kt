@@ -12,8 +12,11 @@ import java.util.LinkedHashMap
 /**
  * 预警解析与告警分发（从 EewService 拆分，v1.0.17+）。
  *
- * 职责：EEW 解析、烈度计算、跨源去重、全屏告警/通知栏分发、备用探测源管理。
+ * 职责：EEW 解析、烈度计算、跨源去重、多源融合、全屏告警/通知栏分发、备用探测源管理。
  * 不涉及 WebSocket 连接——连接管理由 EewConnectionManager 负责。
+ *
+ * v1.3.0 新增多源融合：EewFusion 将不同数据源视为独立"专家"，
+ * 在 1.5s 窗口内收集多源报文后加权融合震级，降低单源误报风险。
  *
  * @param service 父 EewService，用于获取 Context 发起 Activity/通知/Broadcast
  */
@@ -40,6 +43,15 @@ class EewAlertManager(val service: EewService) {
 
     /** 启动后至少已成功触发过一次告警时置 true；用于冷静期判断 */
     private var triggeredAtLeastOnce = false
+
+    // ===== 多源融合临时状态 =====
+    private val fusionLock = Any()
+    /** 首报元数据缓存：key=quakeKey，融合完成时用于决策 */
+    private data class PendingFusionMeta(
+        val eew: Eew, val distKm: Double, val etaSec: Double,
+        val siteIntensity: Double, val intensityStr: String
+    )
+    private val pendingFusionMeta = LinkedHashMap<String, PendingFusionMeta>()
 
     // ===================== EEW 解析 =====================
     // 解析/去重相关纯函数已抽至 Eew.kt 顶层（parseEew / makeQuakeKey），此处仅做告警分发。
@@ -71,28 +83,52 @@ class EewAlertManager(val service: EewService) {
     // ===================== 核心消息分发 =====================
 
     fun handleRaw(raw: String, sourceId: String) {
-        // Wolfx 先用其专属解析；FAN Studio / BeeCLD·2v8 等第三方聚合源走通用解析
-        val parsed = parseEew(raw) ?: parseExternalEew(raw) ?: return
-        // 数据源（尤其是境外中转）可能返回繁体地名，统一转为简体中文后进入下游
-        val eew = parsed.copy(hypoCenter = ZhConvert.toSimplified(parsed.hypoCenter))
+        // 解析回退链：CENC 标准格式 → 第三方聚合（FAN/BeeCLD 信封）→ Project Podris 格式。
+        // 修复 R5-1：parsePodrisEew 此前未接入调用链，Podris 报文即使送达也无法解析；
+        // 现加入回退链，只要任一源（含未来接入的 Podris wsUrl）推送该格式即可被识别，
+        // 对既有 Wolfx/ICL 报文无任何影响（各解析器按各自字段特征返回 null 或 Eew）。
+        val parsed = parseEew(raw) ?: parseExternalEew(raw) ?: parsePodrisEew(raw) ?: return
+        handleRawEew(parsed, sourceId)
+    }
 
-        // 启动冷静期内不触发任何全屏告警：
-        // BeeCLD·2v8 等源在连接时补发最近 N 条历史 EEW，如果直接弹告警会吓到用户。
-        // 这里对触发型告警（triggerAlert）做 15 秒静默，远震提醒/记录仍正常处理。
+    /** ICL HTTP 轮询入口（eew 已解析好） */
+    fun handleRawIcl(eew: Eew, sourceId: String) {
+        handleRawEew(eew, sourceId)
+    }
+
+    /** 统一处理 */
+    private fun handleRawEew(rawEew: Eew, sourceId: String) {
+        val eew = rawEew.copy(hypoCenter = ZhConvert.toSimplified(rawEew.hypoCenter))
+
         val startupGrace = triggeredAtLeastOnce || System.currentTimeMillis() - EewService.serviceStartedMs > 15_000L
 
         val quakeKey = makeQuakeKey(eew)
         val now = System.currentTimeMillis()
         cleanupOldQuakes(now)
 
+        // R5 修复：未设定参考位置时（hasLocation=false），无法计算用户所在地烈度，
+        // 一律不触发全屏/远震告警（避免用 0,0 坐标产生错误估算与误报），仅记录历史。
+        // 首页已引导用户在开启服务前设置位置；此处作为服务端兜底防御。
+        if (!AppConfig.hasLocation) {
+            Log.w(EewService.TAG, "[$sourceId] 未设置参考位置，跳过告警判定仅记录: ${eew.hypoCenter} M${eew.magnitude}")
+            QuakeHistory.record(
+                QuakeRecord(
+                    key = quakeKey, timeMs = now, originTime = eew.originTime,
+                    place = eew.hypoCenter, magnitude = eew.magnitude, depthKm = eew.depthKm,
+                    intensity = "-", distanceKm = 0.0, etaSec = 0.0,
+                    sourceName = EEW_SOURCES.firstOrNull { it.id == sourceId }?.name ?: sourceId,
+                    reportNum = eew.reportNum, triggered = false, backup = false
+                )
+            )
+            notifyHistoryChanged()
+            return
+        }
+
         val distKm = haversineKm(AppConfig.homeLat, AppConfig.homeLon, eew.latitude, eew.longitude)
-        val etaSec = AppConfig.estimateSWaveEtaSeconds(distKm)
-
-        // 本地预估烈度：用震级 + 震中距 + 深度做距离衰减修正，得到【用户所在地】烈度
-        val siteIntensity = estimateSiteIntensity(eew.magnitude, distKm, eew.depthKm)
+        val etaSec = AppConfig.estimateSWaveEtaSeconds(distKm, eew.depthKm)
+        val siteIntensity = estimateSiteIntensity(eew.magnitude, distKm, eew.depthKm,
+            eew.latitude, eew.longitude)
         val intensityStr = "%.1f".format(siteIntensity)
-
-        // 告警判定：用【用户所在地】烈度对比用户设置的烈度阈值 —— 语义与 UI 文案一致
         val alertOk = siteIntensity >= AppConfig.minIntensity
 
         Log.i(
@@ -109,21 +145,37 @@ class EewAlertManager(val service: EewService) {
 
         if (alertOk) {
             if (activeEventId == eew.eventId || activeQuakeKey == quakeKey) {
+                // 已触发告警的同事件后续报：直接刷新
                 postRefresh(eew, distKm, etaSec, intensityStr)
             } else if (!seenBefore && startupGrace) {
-                triggeredAtLeastOnce = true
-                synchronized(this) {
-                    activeEventId = eew.eventId
-                    activeQuakeKey = quakeKey
+                // 新事件首报：送入多源融合引擎
+                // 缓存首报元数据，等融合完成后再决策
+                pendingFusionMeta[quakeKey] = PendingFusionMeta(eew, distKm, etaSec, siteIntensity, intensityStr)
+                val fusionResult = EewFusion.ingest(eew, sourceId, quakeKey)
+                if (fusionResult != null) {
+                    // 已有足够源数据，立即融合决策
+                    onFusionComplete(quakeKey, fusionResult, seenBefore)
+                } else {
+                    // 融合窗口内等待更多源，调度定时强制输出
+                    service.mainHandler.postDelayed({ forceFlushFusion(quakeKey) }, 1600L)
+                    Log.d(EewService.TAG, "融合等待: $quakeKey 第1源=$sourceId")
                 }
-                triggerAlert(eew, distKm, etaSec, intensityStr)
             } else {
-                Log.i(EewService.TAG, "跨源重复事件，跳过新告警: $quakeKey")
+                // 后续到达的其他源同事件报文 → 也在融合窗口内输入
+                if (pendingFusionMeta.containsKey(quakeKey)) {
+                    val fusionResult = EewFusion.ingest(eew, sourceId, quakeKey)
+                    if (fusionResult != null) {
+                        onFusionComplete(quakeKey, fusionResult, seenBefore)
+                    }
+                } else {
+                    Log.i(EewService.TAG, "跨源重复事件，跳过新告警: $quakeKey")
+                }
             }
-        } else if (AppConfig.distantNotify && !seenBefore) {
+        } else if (!seenBefore) {
             postDistantNotify(eew, distKm, etaSec, intensityStr)
         }
 
+        // 无论是否触发告警，都记录到历史（震级用原始值，非融合值）
         QuakeHistory.record(
             QuakeRecord(
                 key = quakeKey, timeMs = now, originTime = eew.originTime,
@@ -134,6 +186,80 @@ class EewAlertManager(val service: EewService) {
             )
         )
         notifyHistoryChanged()
+    }
+
+    /** 融合窗口到期后强制输出结果（由 EewService.mainHandler 定时调用） */
+    private fun forceFlushFusion(quakeKey: String) {
+        val meta = pendingFusionMeta[quakeKey] ?: return
+        if (activeEventId == meta.eew.eventId || activeQuakeKey == quakeKey) {
+            // 已处理过（例如窗口内已融合触发）：清理缓存后返回，避免条目残留
+            pendingFusionMeta.remove(quakeKey)
+            return
+        }
+        val result = EewFusion.forceFlush(quakeKey)
+        if (result == null) {
+            // 防御：pending 已被 cleanupStale 清理或已融合输出——移除本地元数据，防止泄漏
+            Log.w(EewService.TAG, "融合强制输出无结果，清理等待项: $quakeKey")
+            pendingFusionMeta.remove(quakeKey)
+            return
+        }
+        onFusionComplete(quakeKey, result, false)
+    }
+
+    /** 融合完成 → 用融合后震级 + 最优震中坐标重新判定并决策触发 */
+    private fun onFusionComplete(quakeKey: String, result: FusionResult, seenBefore: Boolean) {
+        val meta = pendingFusionMeta.remove(quakeKey) ?: return
+
+        // 使用融合引擎选优的震中坐标（非平均！），确保分区查表物理正确
+        val fusedSiteIntensity = estimateSiteIntensity(result.magnitude, meta.distKm, meta.eew.depthKm,
+            result.fusedLat, result.fusedLon)
+        // 无效烈度直接跳过（M<3 或 R<0 等非法输入）
+        if (fusedSiteIntensity < 0) {
+            Log.w(EewService.TAG, "融合决策无效: M${"%.1f".format(result.magnitude)} R${meta.distKm.toInt()}km → 跳过")
+            return
+        }
+        val fusedIntensityStr = "%.1f".format(fusedSiteIntensity)
+        val fusedAlertOk = fusedSiteIntensity >= AppConfig.minIntensity
+
+        // 首报限制：仅1源初报时记录警告日志
+        if (result.isPreliminary && fusedAlertOk) {
+            Log.w(EewService.TAG, "初报告警（单源）：M${"%.1f".format(result.magnitude)} 待后续修正")
+        }
+
+        Log.i(EewService.TAG, "融合决策 v${result.version}: $quakeKey M${"%.1f".format(result.magnitude)} " +
+                "融合烈度=$fusedIntensityStr 震中(${"%.2f".format(result.fusedLat)},${"%.2f".format(result.fusedLon)}) " +
+                "置信度=${"%.0f".format(result.confidence * 100)}% 首报=${result.isPreliminary} 判定=$fusedAlertOk")
+
+        if (fusedAlertOk && !seenBefore) {
+            triggeredAtLeastOnce = true
+            synchronized(this) {
+                activeEventId = meta.eew.eventId
+                activeQuakeKey = quakeKey
+            }
+            val fusedEew = meta.eew.copy(
+                magnitude = result.magnitude,
+                latitude = result.fusedLat,
+                longitude = result.fusedLon
+            )
+            triggerAlert(fusedEew, meta.distKm, meta.etaSec, fusedIntensityStr)
+        } else if (!fusedAlertOk && !seenBefore) {
+            postDistantNotify(meta.eew, meta.distKm, meta.etaSec, fusedIntensityStr)
+        }
+
+        // 更新历史记录中的震级为融合值（如果融合震级与原始不同）
+        if (kotlin.math.abs(result.magnitude - meta.eew.magnitude) > 0.1) {
+            QuakeHistory.record(
+                QuakeRecord(
+                    key = quakeKey, timeMs = System.currentTimeMillis(),
+                    originTime = meta.eew.originTime,
+                    place = meta.eew.hypoCenter, magnitude = result.magnitude,
+                    depthKm = meta.eew.depthKm, intensity = fusedIntensityStr,
+                    distanceKm = meta.distKm, etaSec = meta.etaSec,
+                    sourceName = "多源融合(${result.sourceCount}源)",
+                    reportNum = meta.eew.reportNum, triggered = fusedAlertOk, backup = false
+                )
+            )
+        }
     }
 
     // ===================== 告警触发 =====================
@@ -199,11 +325,12 @@ class EewAlertManager(val service: EewService) {
 
     private fun postDistantNotify(eew: Eew, distKm: Double, etaSec: Double, intensityStr: String) {
         val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val text = "远震/小震：${eew.hypoCenter} ${"%.1f级地震".format(eew.magnitude)} 烈度$intensityStr，" +
+        val text = "${eew.hypoCenter} ${"%.1f级地震".format(eew.magnitude)} 预估烈度$intensityStr，" +
                 "距参考点约 ${distKm.toInt()}km，S波约 ${etaSec.toInt()}s 后到达"
         val pi = PendingIntent.getActivity(service, 2,
             Intent(service, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
             PendingIntent.FLAG_IMMUTABLE)
+        // 用固定通知 ID：新地震自动覆盖旧通知，始终只显示最新一条
         val n = NotificationCompat.Builder(service, EewService.CHANNEL_DISTANT_ID)
             .setContentTitle("地震哨兵 · 远震小震提醒")
             .setContentText(text)
@@ -212,19 +339,8 @@ class EewAlertManager(val service: EewService) {
             .setContentIntent(pi)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setGroup(EewService.DISTANT_NOTIFY_GROUP)
             .build()
-        nm.notify(EewService.DISTANT_NOTIFY_ID_BASE + (eew.eventId.hashCode() and 0xFFFF), n)
-
-        val summary = NotificationCompat.Builder(service, EewService.CHANNEL_DISTANT_ID)
-            .setContentTitle("地震哨兵 · 远震小震提醒")
-            .setContentText("有新的远震/小震提醒")
-            .setSmallIcon(R.drawable.ic_stat_warning)
-            .setGroup(EewService.DISTANT_NOTIFY_GROUP)
-            .setGroupSummary(true)
-            .setAutoCancel(true)
-            .build()
-        nm.notify(EewService.DISTANT_NOTIFY_SUMMARY_ID, summary)
+        nm.notify(EewService.DISTANT_NOTIFY_ID, n)
     }
 
     // ===================== 备用探测源 =====================
@@ -249,8 +365,22 @@ class EewAlertManager(val service: EewService) {
     private fun handleBackupEew(eew: Eew, sourceName: String) {
         val now = System.currentTimeMillis()
         val quakeKey = makeQuakeKey(eew)
+        // R5：未设参考位置时备用源同样不计算距离/烈度，仅记录（防御性，正常流程首页已阻断未设位置开启服务）
+        if (!AppConfig.hasLocation) {
+            QuakeHistory.record(
+                QuakeRecord(
+                    key = quakeKey, timeMs = now, originTime = eew.originTime,
+                    place = eew.hypoCenter, magnitude = eew.magnitude, depthKm = eew.depthKm,
+                    intensity = "-", distanceKm = 0.0, etaSec = 0.0,
+                    sourceName = sourceName, reportNum = eew.reportNum,
+                    triggered = false, backup = true
+                )
+            )
+            notifyHistoryChanged()
+            return
+        }
         val distKm = haversineKm(AppConfig.homeLat, AppConfig.homeLon, eew.latitude, eew.longitude)
-        val etaSec = AppConfig.estimateSWaveEtaSeconds(distKm)
+        val etaSec = AppConfig.estimateSWaveEtaSeconds(distKm, eew.depthKm)
         val intensityStr = resolveIntensityStr(eew)
 
         val seenBefore = synchronized(dedupLock) {
@@ -290,9 +420,8 @@ class EewAlertManager(val service: EewService) {
             .setContentIntent(pi)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setGroup(EewService.DISTANT_NOTIFY_GROUP)
             .build()
-        nm.notify(EewService.DISTANT_NOTIFY_ID_BASE + (eew.eventId.hashCode() and 0xFFFF), n)
+        nm.notify(EewService.DISTANT_NOTIFY_ID, n)
     }
 
     /** 服务停止时的清理 */

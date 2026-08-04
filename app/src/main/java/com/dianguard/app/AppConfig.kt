@@ -21,12 +21,12 @@ import android.content.SharedPreferences
  */
 object AppConfig {
 
-    // 仅用于首次启动、且用户未授权定位时的兜底坐标（云南普洱·思茅）
-    const val FALLBACK_HOME_LAT = 22.78
-    const val FALLBACK_HOME_LON = 100.97
+    // R5 修复：取消“云南普洱”兜底坐标。
+    // 原因：未设定参考位置时若沿用兜底坐标，距离/烈度计算全部失真，
+    // 会导致针对普洱的误报或对真实震中距的错误估算。未设置位置时
+    // 由调用方以 AppConfig.hasLocation 判断，不触发全屏告警（见 EewAlertManager）。
 
-    const val DEFAULT_MIN_INTENSITY = 2.0        // 烈度阈值（默认+推荐 2°=轻微有感；用户明确要求默认 2 度，降低漏报风险）
-    const val DEFAULT_DISTANT_NOTIFY = false     // 远震小震提醒（通知栏），默认关
+    const val DEFAULT_MIN_INTENSITY = 3.0        // 烈度阈值（默认+推荐 3°=明显有感；R5 修复：由 2° 上调，避免告警疲劳）
     const val DEFAULT_LOCATION_NAME = ""         // 当前定位的中文详细地址
 
     // 震前预警数据源：以下接口均已迁移到 AppConfig 外的 EEW_SOURCES 列表（多源订阅）。
@@ -71,10 +71,11 @@ object AppConfig {
 
     // 修复 #16：经纬度改用 String 存储，彻底消除 Double↔Float 精度损失。
     // 同时兼容旧版 Float 存储：首次读取时若新 key 不存在则回退旧 Float 值，避免升级即丢坐标。
+    // R5：不再提供兜底坐标——未设定位置时返回 0.0，调用方须以 hasLocation 判断是否可用。
     var homeLat: Double
         get() = synchronized(spLock) {
             sp.getString("home_lat_str", null)?.toDoubleOrNull()
-                ?: sp.getFloat("home_lat", FALLBACK_HOME_LAT.toFloat()).toDouble()
+                ?: sp.getFloat("home_lat", 0f).toDouble()
         }
         set(v) = synchronized(spLock) {
             sp.edit().putString("home_lat_str", v.toString()).apply()
@@ -83,7 +84,7 @@ object AppConfig {
     var homeLon: Double
         get() = synchronized(spLock) {
             sp.getString("home_lon_str", null)?.toDoubleOrNull()
-                ?: sp.getFloat("home_lon", FALLBACK_HOME_LON.toFloat()).toDouble()
+                ?: sp.getFloat("home_lon", 0f).toDouble()
         }
         set(v) = synchronized(spLock) {
             sp.edit().putString("home_lon_str", v.toString()).apply()
@@ -103,16 +104,13 @@ object AppConfig {
      * 烈度阈值：用户所在地预估烈度达到此值（含）才触发全屏告警。
      * 机制：EewAlertManager 收到报文后用 estimateSiteIntensity(震级, 震中距, 深度)
      * 估算本地烈度（地震烈度与震级、震源深度、离震中距离相关），再与本阈值比较。
-     * 可选 2°(轻微有感,推荐/默认) / 3°(明显有感) / 4°(强烈有感)。
+     * 可选 3°(明显有感,推荐/默认) / 2°(轻微有感,高级·易频繁打扰) / 4°(强烈有感)。
+     * 注：R5 起默认 3°——2° 虽更灵敏，但全国轻微有感地震频率高，默认 2° 会频繁全屏
+     * 打扰用户，长期诱发“告警疲劳”（狼来了效应），反而削弱真实强震时的响应意愿。
      */
     var minIntensity: Double
         get() = synchronized(spLock) { sp.getFloat("min_intensity", DEFAULT_MIN_INTENSITY.toFloat()).toDouble() }
         set(v) = synchronized(spLock) { sp.edit().putFloat("min_intensity", v.toFloat()).apply() }
-
-    // —— 远震小震提醒（通知栏轻提示） ——
-    var distantNotify: Boolean
-        get() = synchronized(spLock) { sp.getBoolean("distant_notify", DEFAULT_DISTANT_NOTIFY) }
-        set(v) = synchronized(spLock) { sp.edit().putBoolean("distant_notify", v).apply() }
 
     var serviceEnabled: Boolean
         get() = synchronized(spLock) { sp.getBoolean("service_enabled", false) }
@@ -159,9 +157,13 @@ object AppConfig {
         get() = synchronized(spLock) { sp.getBoolean("disclaimer_accepted", false) }
         set(v) = synchronized(spLock) { sp.edit().putBoolean("disclaimer_accepted", v).apply() }
 
-    /** 把 S 波到达时间估算为倒计时秒数：距离 / 波速 */
-    fun estimateSWaveEtaSeconds(distanceKm: Double): Double =
-        distanceKm / S_WAVE_SPEED_KM_S
+    /** 把 S 波到达时间估算为倒计时秒数：**空间震源距** / 波速（含深度修正） */
+    fun estimateSWaveEtaSeconds(distanceKm: Double, depthKm: Double = 0.0): Double {
+        val spatialDist = if (depthKm > 1.0) {
+            kotlin.math.sqrt(distanceKm * distanceKm + depthKm * depthKm)
+        } else distanceKm
+        return spatialDist / S_WAVE_SPEED_KM_S
+    }
 }
 
 /**
@@ -178,58 +180,19 @@ data class EewSource(
 )
 
 /**
- * BeeCLD·2v8 令牌（auth.beecld.com 免费注册获取，形如 wat_xxx），仅用于 api.2v8.cn 的
- * 中国地震预警网 (CEA) 国家级秒级预警源。留空时该连接会被服务端拒绝（4401），但不影响其它源。
- * 注意：FAN Studio 源无需令牌，可直接使用。
+ * 中国大陆国家级「秒级预警」WebSocket 数据源列表。
  *
- * 令牌值由构建系统注入 BuildConfig.BEECLD_TOKEN（来源：gradle.properties 或 local.properties），
- * 不再硬编码于源码中，避免 APK 反编译后直接提取。
- */
-@Suppress("DEPRECATION") // BuildConfig.BEECLD_TOKEN 由 buildConfigField 生成，无替代方案
-val BEECLD_TOKEN: String = BuildConfig.BEECLD_TOKEN
-
-/**
- * FAN Studio 鉴权（ws.fanstudio.tech/cea 现已改为需 API 密钥，不再免密）。
- * appId + key（sk- 开头）从 FAN Studio 开发者平台获取；两者均留空时该连接不发起，
- * 也不会空转重连（服务端会以 1008 关闭）。仅在两者都非空时，`fanstudio_cea` 才会在
- * onOpen 后 5 秒内发送 {"type":"auth","appId":...,"key":...} 鉴权帧。
- */
-const val FAN_APP_ID: String = ""
-const val FAN_KEY: String = ""
-
-/**
- * 中国大陆国家级「秒级预警」数据源（即地震发生瞬间推送、客户端据此全屏告警的 EEW）。
+ * 当前实际拓扑（v1.3.0，R5 审查确认）：
+ *  - WebSocket 实时源：Wolfx CENC（wss://ws-api.wolfx.jp/cenc_eew）——秒级推送；
+ *  - ICL 减灾所官方：经 IclPoller 以 HTTP 3s 轮询独立接入（域名与 Wolfx 完全独立），
+ *    不在本列表中，融合引擎会同时消费两类报文（Wolfx WS + ICL HTTP + 备用源）；
+ *  - Project Podris（免鉴权聚合源）：parsePodrisEew 解析器已就绪并接入 handleRaw 回退链，
+ *    待取得其 WebSocket 地址后在此追加一条 EewSource 即可启用（零代码改动）。
  *
- * 设计目标：去单点。所有源最终都指向【中国地震预警网 (CEA) / 中国地震台网 (CENC)】同套国家级
- * 预警数据，但来自**相互独立的域名/主机**，任一主机宕机/被墙/解析失败，其余仍在线：
- *  - Wolfx (ws-api.wolfx.jp)：历史最久的非官方聚合转发，免 Key；
- *  - FAN Studio (ws.fanstudio.tech)：独立主机，免 Key，专发 CEA 秒级预警；
- *  - BeeCLD·2v8 (api.2v8.cn)：独立主机（beecld.com 的国内镜像），需免费令牌。
- *
- * 启用源（均为秒级预警，不含速报/测定）：
- *  - cenc / sc / cq：Wolfx 转发的国家级 + 川渝区域预警；
- *  - fanstudio_cea：FAN Studio 的国家级 CEA 秒级预警（独立主机）；
- *  - bee_cea：BeeCLD·2v8 的国家级 CEA 秒级预警（独立主机）。
- *
- * 说明：
- *  - 多源订阅提升“能收到报文”的概率——同一地震常被多个机构同时发布；
- *  - 服务层按「物理参数」跨源去重，避免重复全屏告警；
- *  - 第三方聚合源（FAN Studio / BeeCLD）字段与 Wolfx 不同，统一由 parseExternalEew 容错解析。
- *
- * 关于「云南省地震局」：该局无公开程序化接口，境内地震由 CENC 统一发布，已含于 cenc 源。
+ * 说明：FAN Studio（需 API 密钥）与 BeeCLD·2v8（令牌已改由用户自行填写）均不再内置，
+ * 故本列表不再包含二者条目。
  */
 val EEW_SOURCES: List<EewSource> = listOf(
-    // Wolfx 聚合转发（免 Key，单一域名单点——仅作其中一路，不依赖它独撑）
-    EewSource("cenc", "中国地震台网 (CENC)", "wss://ws-api.wolfx.jp/cenc_eew"),
-    EewSource("sc", "四川省地震局", "wss://ws-api.wolfx.jp/sc_eew"),
-    EewSource("cq", "重庆市地震局", "wss://ws-api.wolfx.jp/cq_eew"),
-    // FAN Studio 现已需 API 密钥：未配置 appId/key 时 URL 置空，connectAll 会跳过，避免空转重连
-    EewSource(
-        "fanstudio_cea", "中国地震预警网 (FAN Studio)",
-        if (FAN_APP_ID.isNotEmpty() && FAN_KEY.isNotEmpty()) "wss://ws.fanstudio.tech/cea" else ""
-    ),
-    EewSource(
-        "bee_cea", "中国地震预警网 (BeeCLD·2v8)",
-        "wss://api.2v8.cn/ws/cea" + if (BEECLD_TOKEN.isNotEmpty()) "?token=$BEECLD_TOKEN" else ""
-    )
+    EewSource("cenc", "中国地震台网 (CENC)", "wss://ws-api.wolfx.jp/cenc_eew")
+    // ICL（减灾所官方）通过 IclPoller HTTP 轮询独立工作，不在 WebSocket 列表中
 )

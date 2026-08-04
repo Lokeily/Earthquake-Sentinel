@@ -253,20 +253,89 @@ fun estimateIntensityFromMagnitude(magnitude: Double): Double {
 /**
  * 估算【用户所在地】的地震烈度，供告警判定与等级着色使用。
  *
- * 采用中国西部地区地震烈度衰减关系（汪素云等, 2000）的短轴式，
- * 短轴相对保守，用于预警判定可降低漏报风险：
- *     I = 2.941 + 1.363·M − 1.494·ln(R + 7)
- * 其中 R 取震源距（含深度修正），单位 km。
+ * v1.3.0 升级为分区模型（GB 18306-2015 + 雷建成等2007 区域细化）：
+ * 根据震中坐标自动选择青藏/新疆/东部强震/中强地震/川滇西南/四川盆地的最优短轴衰减系数，
+ * 云南深源地震区使用郁曙君1993特殊公式。无坐标时回退汪素云等2000西部短轴。
  *
- * @param magnitude      震级
+ * @param magnitude       震级
  * @param epicenterDistKm 震中距（用户 ↔ 震中的地表距离）
- * @param depthKm        震源深度
+ * @param depthKm         震源深度
  * @return 用户所在地预估烈度，范围 [0, 12]
  */
 fun estimateSiteIntensity(magnitude: Double, epicenterDistKm: Double, depthKm: Double): Double {
     if (magnitude <= 0) return 0.0
     val d = if (depthKm > 0) depthKm else 10.0
     val hypoDist = sqrt(epicenterDistKm * epicenterDistKm + d * d)
+    // 无坐标时回退汪素云等2000
     val i = 2.941 + 1.363 * magnitude - 1.494 * ln(hypoDist + 7.0)
     return i.coerceIn(0.0, 12.0)
+}
+
+/** 分区模型版本：传入震中坐标将自动选择最优衰减公式 */
+fun estimateSiteIntensity(magnitude: Double, epicenterDistKm: Double, depthKm: Double,
+                          epiLat: Double, epiLon: Double): Double {
+    if (magnitude <= 0) return 0.0
+    return GeoUtils.estimateSiteIntensity(magnitude, epicenterDistKm, depthKm, epiLat, epiLon)
+}
+
+/**
+ * 解析 Project Podris WebSocket 的 EEW 报文。
+ * {"event_type":"EEW","magnitude":6.8,"location":[lat,lon],"depth":10,...}
+ */
+fun parsePodrisEew(raw: String): Eew? {
+    return try {
+        val root = JSONObject(raw)
+        if (root.optString("event_type", "") != "EEW") return null
+        val loc = root.optJSONArray("location") ?: return null
+        if (loc.length() < 2) return null
+        val lat = loc.optDouble(0, Double.NaN)
+        val lon = loc.optDouble(1, Double.NaN)
+        if (lat.isNaN() || lon.isNaN() || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null
+        val mag = root.optDouble("magnitude", 0.0)
+        if (mag <= 0) return null
+        Eew(
+            id = root.optString("event_id", ""),
+            eventId = root.optString("event_id", ""),
+            reportNum = root.optInt("report_num", 1),
+            originTime = root.optString("time", ""),
+            hypoCenter = root.optString("region", "未知地区"),
+            latitude = lat, longitude = lon,
+            magnitude = mag,
+            depthKm = root.optInt("depth", 0).toDouble(),
+            maxIntensity = root.optDouble("intensity", 0.0).let { if (it > 0) "%.1f".format(it) else "" }
+        )
+    } catch (_: Exception) { null }
+}
+
+/**
+ * 解析 ICL（成都高新减灾研究所）官方 EEW HTTP 接口报文。
+ * {"eventId":...,"updates":2,"latitude":28.5,"longitude":104.6,"depth":5,
+ *  "epicenter":"四川宜宾","startAt":1785694905000,"magnitude":5.1,"epiIntensity":7}
+ * startAt 为发震时刻（epoch 毫秒），无鉴权。
+ */
+fun parseIclEew(obj: JSONObject): Eew? {
+    return try {
+        val eventId = obj.optString("eventId", "")
+        if (eventId.isBlank()) return null
+        val lat = obj.optDouble("latitude", Double.NaN)
+        val lon = obj.optDouble("longitude", Double.NaN)
+        if (lat.isNaN() || lon.isNaN() || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null
+        val mag = obj.optDouble("magnitude", 0.0)
+        if (mag <= 0) return null
+        val startAt = obj.optLong("startAt", 0L)
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+        fmt.timeZone = java.util.TimeZone.getTimeZone("Asia/Shanghai")
+        val originTime = if (startAt > 0L) fmt.format(java.util.Date(startAt)) else ""
+        Eew(
+            id = eventId,
+            eventId = eventId,
+            reportNum = obj.optInt("updates", 1),
+            originTime = originTime,
+            hypoCenter = obj.optString("epicenter", "未知地区"),
+            latitude = lat, longitude = lon,
+            magnitude = mag,
+            depthKm = obj.optDouble("depth", 0.0),
+            maxIntensity = obj.optDouble("epiIntensity", 0.0).let { if (it > 0) "%.1f".format(it) else "" }
+        )
+    } catch (_: Exception) { null }
 }

@@ -48,10 +48,11 @@ object HistoryFetcher {
     }
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    /** 专用短超时客户端 */
+    /** 专用短超时客户端（与全局客户端共用同一套证书固定规则，防中间人注入虚假历史目录） */
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(6, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
+        .certificatePinner(HttpClient.buildCertificatePinner())
         .build()
 
     private val zhFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
