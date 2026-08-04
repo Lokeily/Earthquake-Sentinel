@@ -148,15 +148,6 @@ object AppConfig {
         set(v) = synchronized(spLock) { sp.edit().putString("quake_history_v1", v).apply() }
 
     /**
-     * 融合校准样本库（v1.4.0）：JSON 数组字符串，由 FusionCalibration 读写。
-     * 存储每次融合的各源震级快照 + CENC 真值回填，驱动多源融合自学习。
-     * 容量上限 200 条、30 天裁剪，体量极小（每条 < 150 字节）。
-     */
-    var fusionCalibJson: String
-        get() = synchronized(spLock) { sp.getString("fusion_calib_v1", "[]") ?: "[]" }
-        set(v) = synchronized(spLock) { sp.edit().putString("fusion_calib_v1", v).apply() }
-
-    /**
      * 免责声明与用户协议是否已同意（v1.1.0）。
      * - 首次开启预警监听时若为 false，会弹窗强制要求阅读并同意才能启用；
      * - 在"设置"页可随时点开《免责声明与用户协议》查看完整内容；

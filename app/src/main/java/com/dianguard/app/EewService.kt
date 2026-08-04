@@ -175,8 +175,6 @@ class EewService : Service() {
         super.onCreate()
         serviceStartedMs = System.currentTimeMillis()
         AppConfig.init(this)
-        // 自学习校准（v1.4.0）：启动时从 SP 恢复融合样本并重建源偏差画像
-        FusionCalibration.load()
         connMgr = EewConnectionManager(this)
         alertMgr = EewAlertManager(this)
         iclPoller = IclPoller { eew, src -> alertMgr.handleRawIcl(eew, src) }

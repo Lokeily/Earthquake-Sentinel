@@ -5,19 +5,21 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.*
 
 /**
- * 多源数据融合决策引擎（v1.3.0 稳定版）。
+ * 多源数据融合决策引擎（开源精简版）。
  *
- * 关键设计原则：
- * - 震级用加权中位数融合（抗异常值）；
- * - 震中坐标选优（Centroid Selection）：取权重最高源的原始坐标，严禁加权平均；
- * - 首报标记 isPreliminary，禁止触发红色警报；
- * - 采用动态趋势积分替代静态权重惩罚；
- * - 版本锁机制：修正幅度 > ±0.4 级时强制推送更新。
+ * ⚠️ 闭源说明：本项目原自研「EewFusion 多源融合决策引擎」及其自学习校准模块
+ * （FusionCalibration）已转为**闭源专有**（见 README 许可声明）。本文件为开源仓库
+ * 中的**兼容精简实现**：保留对外接口签名（ingest / forceFlush / FusionResult /
+ * BufferedReport / initSources / getReliability），使 EewAlertManager 等调用方
+ * 无需改动即可编译运行；内部融合算法简化为多源加权平均 + 坐标选优 + 去重，
+ * 不含动态趋势积分、可靠性自学习等闭源智能。
+ *
+ * 数据流：多源报文 → ingest() 在 1.5s 窗口内收集 → 加权平均震级 → 坐标选优 → 输出。
  */
 
-/** 单次融合结果 */
+/** 单次融合结果（接口与闭源版一致，供调用方决策） */
 data class FusionResult(
-    /** 加权融合后的震级 */
+    /** 融合后的震级 */
     val magnitude: Double,
     /** 置信度 0.0-1.0 */
     val confidence: Double,
@@ -25,9 +27,9 @@ data class FusionResult(
     val sourceCount: Int,
     /** 各源震级的标准差 */
     val stdDev: Double,
-    /** 最优震中纬度（取自权重最高的源，非平均） */
+    /** 最优震中纬度（取权重最高源，非平均） */
     val fusedLat: Double,
-    /** 最优震中经度（取自权重最高的源，非平均） */
+    /** 最优震中经度（取权重最高源，非平均） */
     val fusedLon: Double,
     /** 是否为初报（仅1源、窗口未满即强制输出） */
     val isPreliminary: Boolean,
@@ -35,13 +37,13 @@ data class FusionResult(
     val version: Int
 )
 
-/** 源的可靠性记录 */
+/** 源可靠性记录（开源版为静态展示用，权重固定为默认值） */
 data class SourceReliability(
     val id: String,
     val name: String,
     val weight: Double,
     val totalFusions: Long,
-    /** 动态趋势计数器：正数=连续高于共识，负数=连续低于共识 */
+    /** 趋势计数器（开源版恒为 0，保留字段兼容） */
     val trendScore: Int
 )
 
@@ -52,18 +54,11 @@ object EewFusion {
     /** 融合窗口：在此时间内收集多个源的同类报文 */
     private const val FUSION_WINDOW_MS = 1500L
 
-    /** 动态趋势阈值：连续2次高于中位数 → 震级爬坡期，提升权重 */
-    private const val TREND_BONUS_THRESHOLD = 2
-    /** 趋势加成系数 */
-    private const val TREND_BONUS_FACTOR = 0.10
-
-    /** 源默认初始权重 */
+    /** 源默认初始权重（开源版固定权重，不参与学习） */
     private const val DEFAULT_WEIGHT = 0.8
     private const val MIN_WEIGHT = 0.3
-    /** 趋势封顶：单次地震事件中因趋势积分获得的额外权重总和上限 */
-    private const val MAX_TREND_BONUS = 0.20
-    /** 趋势归零条件：连续3次不变即停止强化 */
-    private const val TREND_RESET_THRESHOLD = 3
+    private const val MAX_WEIGHT = 1.0
+
     /** 坐标死区（km）：新坐标偏离上次输出 < 此值则沿用旧坐标，防止高频震荡 */
     private const val COORD_DEAD_ZONE_KM = 15.0
 
@@ -74,10 +69,6 @@ object EewFusion {
     /** 每事件上次输出的坐标（用于死区判断） */
     private data class LastOutput(val lat: Double, val lon: Double)
     private val lastOutput = ConcurrentHashMap<String, LastOutput>()
-    /** 每事件的趋势累计加成（封顶用，Key=quakeKey+sourceId） */
-    private val eventTrendBonus = ConcurrentHashMap<String, Double>()
-    /** 每事件的连续不变计数器（Key=quakeKey+sourceId） */
-    private val eventTrendStreak = ConcurrentHashMap<String, Int>()
 
     fun initSources() {
         for (src in EEW_SOURCES) {
@@ -149,7 +140,7 @@ object EewFusion {
         while (it.hasNext()) {
             val (key, reports) = it.next()
             if (reports.all { it.receivedMs < cutoff }) {
-                Log.w(TAG, "融合超时丢弃: $key (${reports.size} 源, 首报距今${now - reports.minOf { it.receivedMs }}ms)")
+                Log.w(TAG, "融合超时丢弃: $key (${reports.size} 源)")
                 it.remove()
             }
         }
@@ -158,26 +149,18 @@ object EewFusion {
     /** 获取各源可靠性数据（供主页/调试展示） */
     fun getReliability(): List<SourceReliability> = reliability.values.toList()
 
-    // ===== 核心融合算法 =====
+    // ===== 核心融合算法（开源精简版：加权平均 + 坐标选优） =====
 
     private fun fuse(reports: List<BufferedReport>, quakeKey: String): FusionResult {
-        // 自学习校准（v1.4.0）：每源震级先经 FusionCalibration 修正（M' = M − μ，
-        // 样本数 ≥10 才启用），再参与融合——让引擎从历史真值中学习各源系统性偏差。
-        // 采样：无论是否修正，都记录本源的震级快照，供后续真值回填学习。
-        val mags = reports.map { r ->
-            FusionCalibration.collectSample(
-                quakeKey, r.sourceId, r.eew.magnitude, r.receivedMs,
-                r.eew.latitude, r.eew.longitude
-            )
-            FusionCalibration.correctMagnitude(r.sourceId, r.eew.magnitude)
-        }
+        val mags = reports.map { it.eew.magnitude }
         val sourceIds = reports.map { it.sourceId }.distinct()
 
-        // 震级：加权中位数（抗异常值）
+        // 震级：按源权重加权平均（开源版权重固定，不做动态学习）
         val weights = reports.map { reliability[it.sourceId]?.weight ?: DEFAULT_WEIGHT }
-        val fusedMag = weightedMedian(mags, weights)
+        val totalW = weights.sum().coerceAtLeast(1.0)
+        val fusedMag = mags.zip(weights).sumOf { (m, w) -> m * w } / totalW
 
-        // 坐标选优（Centroid Selection）+ 死区过滤
+        // 坐标选优（Centroid Selection）：取权重最高源的原始坐标，严禁加权平均
         val bestSource = reports.maxByOrNull { reliability[it.sourceId]?.weight ?: DEFAULT_WEIGHT }!!
         val rawLat = bestSource.eew.latitude
         val rawLon = bestSource.eew.longitude
@@ -193,11 +176,10 @@ object EewFusion {
 
         // 加权标准差
         val mean = mags.average()
-        val variance = mags.zip(weights).sumOf { (m, w) -> w * (m - mean) * (m - mean) } /
-                weights.sum().coerceAtLeast(1.0)
+        val variance = mags.zip(weights).sumOf { (m, w) -> w * (m - mean) * (m - mean) } / totalW
         val stdDev = sqrt(variance)
 
-        // 置信度
+        // 置信度：多源一致 → 高置信；单源初报 → 低置信 + isPreliminary 标记
         val srcFactor = (sourceIds.size.coerceAtMost(3) / 3.0)
         val consistencyFactor = (1.0 - (stdDev / 1.5).coerceIn(0.0, 1.0))
         val confidence = (srcFactor * 0.6 + consistencyFactor * 0.4).coerceIn(0.0, 1.0)
@@ -207,45 +189,9 @@ object EewFusion {
         eventVersion[quakeKey] = v
         val isPreliminary = reports.size == 1
 
-        // 动态趋势积分 + 封顶 + 连续不变归零
-        for (report in reports) {
-            val old = reliability[report.sourceId] ?: continue
-            val delta = report.eew.magnitude - fusedMag
-            val bonusKey = "$quakeKey|${report.sourceId}"
-
-            val newTrend = when {
-                delta > 0.3 -> {
-                    eventTrendStreak[bonusKey] = 0  // 变化 → 重置连续不变计数
-                    old.trendScore + 1
-                }
-                delta < -0.3 -> old.trendScore - 1
-                else -> {
-                    val streak = eventTrendStreak.getOrDefault(bonusKey, 0) + 1
-                    eventTrendStreak[bonusKey] = streak
-                    if (streak >= TREND_RESET_THRESHOLD) 0 else old.trendScore  // 连续3次不变 → 归零
-                }
-            }
-
-            val currentBonus = eventTrendBonus.getOrDefault(bonusKey, 0.0)
-            val rawNewWeight = when {
-                newTrend >= TREND_BONUS_THRESHOLD -> old.weight + TREND_BONUS_FACTOR
-                newTrend <= -TREND_BONUS_THRESHOLD -> old.weight - TREND_BONUS_FACTOR
-                else -> old.weight
-            }
-            // 趋势封顶：本事件累积加成 ≤ +20%
-            val actualBonus = rawNewWeight - DEFAULT_WEIGHT
-            val cappedBonus = actualBonus.coerceIn(-MAX_TREND_BONUS, MAX_TREND_BONUS)
-            val newWeight = (DEFAULT_WEIGHT + cappedBonus).coerceIn(MIN_WEIGHT, 1.0)
-            eventTrendBonus[bonusKey] = cappedBonus
-
-            reliability[report.sourceId] = old.copy(
-                weight = newWeight, totalFusions = old.totalFusions + 1, trendScore = newTrend
-            )
-        }
-
-        Log.i(TAG, "融合完成 v$v: $quakeKey | ${reports.size}源→M${"%.1f".format(fusedMag)} " +
-                "震中(${"%.2f".format(fusedLat)},${"%.2f".format(fusedLon)})来自$bestSource.sourceId " +
-                "σ=${"%.2f".format(stdDev)} 首报=$isPreliminary 置信度=${"%.0f".format(confidence * 100)}%")
+        Log.i(TAG, "融合完成(开源精简版) v$v: $quakeKey | ${reports.size}源→M${"%.1f".format(fusedMag)} " +
+                "震中(${"%.2f".format(fusedLat)},${"%.2f".format(fusedLon)}) σ=${"%.2f".format(stdDev)} " +
+                "置信度=${"%.0f".format(confidence * 100)}%")
 
         return FusionResult(fusedMag, confidence, sourceIds.size, stdDev, fusedLat, fusedLon, isPreliminary, v)
     }
@@ -257,30 +203,5 @@ object EewFusion {
         val dLon = Math.toRadians(lon2 - lon1)
         val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
         return r * 2 * atan2(sqrt(a), sqrt(1 - a))
-    }
-    private fun sin(x: Double) = kotlin.math.sin(x)
-    private fun cos(x: Double) = kotlin.math.cos(x)
-
-    /** 加权中位数：按权重排序后，累加权重的 50% 分位点即为加权中位数 */
-    private fun weightedMedian(values: List<Double>, weights: List<Double>): Double {
-        if (values.isEmpty()) return 0.0
-        if (values.size == 1) return values[0]
-
-        val sorted = values.zip(weights).sortedBy { it.first }
-        val totalWeight = weights.sum()
-        var accumulated = 0.0
-        for ((v, w) in sorted) {
-            accumulated += w
-            if (accumulated >= totalWeight / 2.0) return v
-        }
-        return sorted.last().first
-    }
-
-    /** 简单平均值（备用，当前未使用） */
-    @Suppress("unused")
-    private fun weightedAverage(values: List<Double>, weights: List<Double>): Double {
-        val sum = values.zip(weights).sumOf { (v, w) -> v * w }
-        val total = weights.sum()
-        return if (total > 0) sum / total else 0.0
     }
 }
