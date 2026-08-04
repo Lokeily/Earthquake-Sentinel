@@ -224,13 +224,21 @@ class AlertActivity : AppCompatActivity() {
     /** 震级文案：面向公众，直接写“X.X级地震”，不用专业的“M X.X”写法 */
     private fun magText(mag: Double): String = "%.1f级地震".format(mag)
 
-    /** 四级预警行动指引：极简 */
+    /**
+     * 四级预警破坏描述 + 避险指引。
+     * 烈度区间与破坏情况对齐《中国地震烈度表》(GB/T 17742-2020) 及
+     * 中国地震局预警等级标准（红≥7°灾害性 / 橙5-6°灾害性 / 黄3-4°告知性 / 蓝<3°告知性）。
+     */
     private fun damageDescription(level: WarningLevel): String = when (level) {
-        WarningLevel.BLUE  -> "保持冷静，无需惊慌"
-        WarningLevel.YELLOW -> "就地避险，远离玻璃窗"
-        WarningLevel.ORANGE -> "立即趴下，保护头部！"
-        WarningLevel.RED   -> "趴下、掩护、抓牢！！"
-        WarningLevel.NONE  -> ""
+        WarningLevel.BLUE ->
+            "预估烈度 1-2 度：多数人无感或轻微有感\n保持冷静，无需惊慌"
+        WarningLevel.YELLOW ->
+            "预估烈度 3-4 度：室内多数人有感，悬挂物明显摆动\n就地避险，远离玻璃窗"
+        WarningLevel.ORANGE ->
+            "预估烈度 5-6 度：多数人站立不稳、惊逃户外，少数轻家具移动\n立即趴下，保护头部！"
+        WarningLevel.RED ->
+            "预估烈度 7 度及以上：物品掉落、家具倾倒，房屋可能破坏\n趴下、掩护、抓牢！！"
+        WarningLevel.NONE -> ""
     }
 
     /**
@@ -335,9 +343,10 @@ class AlertActivity : AppCompatActivity() {
     private fun updateDetail(intent: android.content.Intent) {
         val dist = intent.getDoubleExtra(EewService.EXTRA_DISTANCE, 0.0)
         val depth = intent.getDoubleExtra(EewService.EXTRA_DEPTH, 0.0)
-        // 用烈度（震中距衰减测算值，代表用户所在位置的震感强度）作为"预警震级"
+        // 五要素规范（中国地震局）：预警震级=震级 M（由 tvMag 展示）；
+        // EXTRA_INTENSITY 是用户所在地【预估烈度】，不得标注为"震级"。
         val intensity = intent.getStringExtra(EewService.EXTRA_INTENSITY) ?: "-"
-        tvDetail.text = "震中距约 ${dist.toInt()} km · 预警震级 ${intensity}级 · 深度 ${depth.toInt()} km"
+        tvDetail.text = "震中距约 ${dist.toInt()} km · 预估烈度 ${intensity}度 · 深度 ${depth.toInt()} km"
     }
 
     private fun startCountdown(etaSeconds: Double) {
