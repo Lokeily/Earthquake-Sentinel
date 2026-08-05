@@ -43,12 +43,17 @@ class HomeFragment : Fragment() {
     private lateinit var btnBattery: Button
     private lateinit var btnGuide: Button
 
+    // 数据来源面板折叠控件（v1.3.1+）
+    private lateinit var rowSourcesTitle: View
+    private lateinit var ivSourcesChevron: android.widget.ImageView
+    private lateinit var llSourcesBody: View
+
     private val sourceRows = mutableListOf<SourceRow>()
     private val sourceTickHandler = Handler(Looper.getMainLooper())
     private var sourceTickRunnable: Runnable? = null
 
-    /** 单路数据源行视图引用 */
-    private data class SourceRow(val dot: View, val name: TextView, val status: TextView)
+    /** 单路数据源行视图引用 + 所属 EewSource（用于状态文案翻译） */
+    private data class SourceRow(val dot: View, val name: TextView, val status: TextView, val src: EewSource)
 
     private val REQ_RUNTIME = 2001
     private val REQ_OVERLAY = 2002
@@ -109,11 +114,15 @@ class HomeFragment : Fragment() {
         tvLastData = root.findViewById(R.id.tv_last_data)
         btnBattery = root.findViewById(R.id.btn_battery)
         btnGuide = root.findViewById(R.id.btn_guide)
+        rowSourcesTitle = root.findViewById(R.id.row_sources_title)
+        ivSourcesChevron = root.findViewById(R.id.iv_sources_chevron)
+        llSourcesBody = root.findViewById(R.id.ll_sources_body)
 
         tvSourcesTitle.text = getString(R.string.sources_title, EEW_SOURCES.size)
         tvSourcesHint.text = getString(R.string.sources_hint_disabled, EEW_SOURCES.size)
 
         setupSourceRows()
+        setupSourcesPanelCollapse()
         refreshEnableUi()
 
         btnEnable.setOnClickListener { toggleService() }
@@ -176,7 +185,7 @@ class HomeFragment : Fragment() {
             val status = row.findViewById<TextView>(R.id.src_status)
             name.text = src.name
             sourcesList.addView(row)
-            sourceRows.add(SourceRow(dot, name, status))
+            sourceRows.add(SourceRow(dot, name, status, src))
         }
     }
 
@@ -191,6 +200,49 @@ class HomeFragment : Fragment() {
             stopSourceTick()
             tvBackupStatus.setText(R.string.status_down)
             backupDot.backgroundTintList = ColorStateList.valueOf(color(R.color.source_gray))
+        }
+    }
+
+    // ===================== 数据来源面板：可折叠/展开 =====================
+
+    /**
+     * 初始化面板折叠控件：根据用户上次偏好恢复状态（不动画），并绑定点击切换。
+     * - 收起时：body 整体 GONE，chevron 旋转 180°（朝上）；标题始终可见，方便随时展开。
+     * - 展开时：body 恢复 VISIBLE，chevron 旋转回 0°（朝下，展开指示）。
+     * - 偏好持久化在 AppConfig.sourcesCollapsed（SharedPreferences），跨会话保留。
+     */
+    private fun setupSourcesPanelCollapse() {
+        applySourcesPanelCollapsed(AppConfig.sourcesCollapsed, animate = false)
+        rowSourcesTitle.setOnClickListener { toggleSourcesPanel() }
+    }
+
+    /** 切换展开/收起：更新状态 + 写盘 + 播放动画 */
+    private fun toggleSourcesPanel() {
+        val newCollapsed = !AppConfig.sourcesCollapsed
+        AppConfig.sourcesCollapsed = newCollapsed
+        applySourcesPanelCollapsed(newCollapsed, animate = true)
+    }
+
+    private fun applySourcesPanelCollapsed(collapsed: Boolean, animate: Boolean) {
+        val targetRotation = if (collapsed) 180f else 0f
+        if (!animate) {
+            ivSourcesChevron.rotation = targetRotation
+            llSourcesBody.visibility = if (collapsed) View.GONE else View.VISIBLE
+            llSourcesBody.alpha = 1f
+            return
+        }
+        if (!collapsed) {
+            // 展开：body 先设为可见再淡入，chevron 从上转回下
+            llSourcesBody.alpha = 0f
+            llSourcesBody.visibility = View.VISIBLE
+            llSourcesBody.animate().alpha(1f).setDuration(180L).start()
+            ivSourcesChevron.animate().rotation(0f).setDuration(180L).start()
+        } else {
+            // 收起：body 淡出后 GONE，chevron 从下转向上
+            llSourcesBody.animate().alpha(0f).setDuration(160L)
+                .withEndAction { llSourcesBody.visibility = View.GONE }
+                .start()
+            ivSourcesChevron.animate().rotation(180f).setDuration(180L).start()
         }
     }
 
@@ -217,7 +269,7 @@ class HomeFragment : Fragment() {
         for (i in sourceRows.indices) {
             val row = sourceRows[i]
             val st = states.getOrNull(i) ?: continue
-            val (c, text) = describeSource(st)
+            val (c, text) = describeSource(row.src, st)
             row.dot.backgroundTintList = ColorStateList.valueOf(c)
             row.status.text = text
         }
@@ -233,13 +285,21 @@ class HomeFragment : Fragment() {
 
     /**
      * 单路数据源状态翻译为（圆点颜色, 状态文案），语气保持平静：
+     *  - 用户自注册 BeeCLD 未启用 → 灰「未启用」（避免误以为连接中）
      *  - 已连接        → 绿“已连接”
      *  - 未连接·重试中  → 灰“连接中…”
      *  - 未连接·多次失败 → 橙“重连中…”（不标红，单源抖动是移动网络常态）
      */
-    private fun describeSource(st: SourceUiState): Pair<Int, String> {
+    private fun describeSource(src: EewSource, st: SourceUiState): Pair<Int, String> {
+        // 用户自注册 BeeCLD：未启用时显式标注"未启用"
+        if (src.id == "beecld" && !AppConfig.beecldEnabled) {
+            return color(R.color.source_gray) to getString(R.string.source_status_disabled)
+        }
         return if (!st.connected) {
-            if (st.failCount >= EewService.CONN_FAIL_WARN_THRESHOLD) {
+            // 数据源侧 5xx（如 Wolfx 网关 503）→ 明确提示“源服务器异常”，区别于本机网络问题
+            if (st.serverError != null) {
+                color(R.color.source_orange) to "源异常·${st.serverError}"
+            } else if (st.failCount >= EewService.CONN_FAIL_WARN_THRESHOLD) {
                 color(R.color.source_orange) to "重连中…"
             } else {
                 color(R.color.source_gray) to "连接中…"

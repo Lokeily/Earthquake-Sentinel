@@ -1,12 +1,14 @@
 package com.dianguard.app
 
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Handler
 import android.util.Log
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -23,7 +25,9 @@ import org.json.JSONObject
  */
 class EewConnectionManager(val service: EewService) {
 
-    private val client = HttpClient.instance
+    // 每次都从 HttpClient.instance 取最新客户端引用，避免证书固定降级重建后旧 client
+    // 仍带旧 SPKI 规则导致重连永远失败（P0 修复：见 HttpClient.PINNED_HOSTS 注释）。
+    private val client: OkHttpClient get() = HttpClient.instance
     val connections = LinkedHashMap<String, SourceConn>()
     val connectedSources = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private val maxReconnectDelayMs = 60_000L
@@ -55,13 +59,59 @@ class EewConnectionManager(val service: EewService) {
     fun connectAll() {
         for (src in EEW_SOURCES) {
             if (src.wsUrl.isBlank()) {
-                Log.i(EewService.TAG, "跳过未配置的主机: ${src.id}")
+                // 动态源（beecld）：仅在用户已启用且填好 token 时，按 AppConfig 动态 URL 起连；
+                // 否则跳过（与 ICL 的“非 WS 源由 IclPoller 维护”不同，beecld 是“可选 WS 源”）。
+                if (src.id == "beecld") {
+                    val url = AppConfig.beecldWsUrl()
+                    if (url.isNotBlank()) {
+                        val conn = SourceConn(src)
+                        connections[src.id] = conn
+                        conn.connect(url)
+                    } else {
+                        Log.i(EewService.TAG, "跳过未启用的动态源: ${src.id}")
+                    }
+                } else {
+                    Log.i(EewService.TAG, "跳过未配置的主机: ${src.id}")
+                }
                 continue
             }
             val conn = SourceConn(src)
             connections[src.id] = conn
             conn.connect()
         }
+        refreshHeadline()
+    }
+
+    /**
+     * 运行时按用户配置动态起连某个源（当前用于 beecld）。
+     * 若已有连接则先撤销再重连，确保更换 token 后立即生效。
+     */
+    fun connectSourceDynamically(id: String) {
+        val src = EEW_SOURCES.firstOrNull { it.id == id } ?: return
+        val url = when (id) {
+            "beecld" -> AppConfig.beecldWsUrl()
+            else -> return
+        }
+        if (url.isBlank()) return
+        connections[id]?.let { old ->
+            old.cancelPending()
+            try { old.ws?.cancel() } catch (_: Exception) { }
+        }
+        val conn = SourceConn(src)
+        connections[id] = conn
+        conn.connect(url)
+        refreshHeadline()
+    }
+
+    /** 运行时断开并移除某个源（当前用于 beecld 停用）。 */
+    fun disconnectSource(id: String) {
+        val conn = connections[id] ?: return
+        conn.cancelPending()
+        try { conn.ws?.cancel() } catch (_: Exception) { }
+        connections.remove(id)
+        connectedSources.remove(id)
+        EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
+        patchSourceState(id) { copy(connected = false, failCount = 0L) }
         refreshHeadline()
     }
 
@@ -108,8 +158,10 @@ class EewConnectionManager(val service: EewService) {
 
     /** 重建头条状态并广播给主页/前台通知 */
     fun refreshHeadline(force: Boolean = false) {
-        val n = connectedSources.size
-        val text = if (n > 0) {
+        // 在线判定统一纳入 ICL HTTP 轮询源：仅当所有源（含 ICL）都断时，才判为“全断”并激活备用源。
+        // 避免 Wolfx WebSocket 抖动/断开但 ICL 仍存活时，误报“监听中断”并误激活备用探测源。
+        val anyAlive = connectedSources.isNotEmpty() || EewService.anySourceConnected
+        val text = if (anyAlive) {
             lastAnyConnectedMs = System.currentTimeMillis()
             cancelAllDownCheck()
             service.alertMgr.stopBackupSource()
@@ -135,17 +187,24 @@ class EewConnectionManager(val service: EewService) {
         var ws: WebSocket? = null
         var delay = 3_000L
         var failCount = 0L
+        // 动态源（beecld）实际起连用的完整 URL（含 token 参数）；空白 wsUrl 源用此值，其余等于 source.wsUrl
+        var resolvedUrl: String? = null
         // 待执行的重连任务；destroy() 时据此撤销，避免已销毁后仍被 postDelayed 拉起新连接（泄漏）
         var pendingReconnect: Runnable? = null
 
-        fun connect() {
-            val request = Request.Builder().url(source.wsUrl).build()
-            ws = client.newWebSocket(request, makeListener(source.id))
+        fun connect(urlOverride: String? = null) {
+            val url = urlOverride ?: source.wsUrl
+            resolvedUrl = url
+            val builder = Request.Builder().url(url)
+            // 个别源（如 EMSC SockJS）要求携带 Origin 等头，否则握手被拒
+            for ((k, v) in source.headers) builder.header(k, v)
+            ws = client.newWebSocket(builder.build(), makeListener(source.id))
         }
 
         fun scheduleReconnect() {
             cancelPending()
-            val r = Runnable { connect() }
+            // 动态源（beecld）必须用实际起连的 resolvedUrl（含 token）重连，空 wsUrl 不能直接 connect()
+            val r = Runnable { connect(resolvedUrl) }
             pendingReconnect = r
             service.mainHandler.postDelayed(r, delay)
             delay = (delay * 2).coerceAtMost(maxReconnectDelayMs)
@@ -172,7 +231,16 @@ class EewConnectionManager(val service: EewService) {
                 c.failCount = 0L
             }
             EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
-            patchSourceState(sourceId) { copy(connected = true, failCount = 0L) }
+            patchSourceState(sourceId) { copy(connected = true, failCount = 0L, serverError = null) }
+            // 用户自注册动态源（beecld）连接成功 → 广播，供设置页弹出“已成功启用”悬浮提示
+            if (sourceId == "beecld") {
+                try {
+                    val i = Intent(EewService.ACTION_SOURCE_CONNECTED)
+                        .putExtra(EewService.EXTRA_SOURCE_ID, sourceId)
+                    androidx.localbroadcastmanager.content.LocalBroadcastManager
+                        .getInstance(service).sendBroadcast(i)
+                } catch (_: Exception) { }
+            }
             if (service.alertMgr.dataStaleNotified) {
                 service.alertMgr.dataStaleNotified = false
             }
@@ -198,11 +266,19 @@ class EewConnectionManager(val service: EewService) {
                 Log.d(EewService.TAG, "忽略过期连接的回调($sourceId)")
                 return
             }
+            // R6（P1 证书固定逃生舱）：断开若由证书固定失败引起，上报 HttpClient 评估是否降级为系统信任
+            // 动态源（beecld）用实际起连的 resolvedUrl 取 host；api.2v8.cn 未在固定表中，不会误降级
+            runCatching { java.net.URL(cur.resolvedUrl ?: cur.source.wsUrl).host }.getOrNull()?.let { host ->
+                HttpClient.reportFailure(host, t)
+            }
             Log.w(EewService.TAG, "WebSocket 断开($sourceId): ${t.message}")
             connectedSources.remove(sourceId)
             EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
             cur.failCount++
-            patchSourceState(sourceId) { copy(connected = false, failCount = cur.failCount) }
+            // 握手/升级被数据源以 5xx 拒绝（如 Wolfx 网关 503）→ 标记服务端异常，
+            // 主页据此显示「源异常·503」；普通网络抖动/断网（response 为 null）则保持 null。
+            val serverErr = if (response != null && response.code >= 500) response.code.toString() else null
+            patchSourceState(sourceId) { copy(connected = false, failCount = cur.failCount, serverError = serverErr) }
             if (cur.failCount == EewService.CONN_FAIL_WARN_THRESHOLD) {
                 Log.w(EewService.TAG, "数据源 ${cur.source.name} 连续失败 ${cur.failCount} 次，可能已不可用，将持续退避重试")
             }

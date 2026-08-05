@@ -25,11 +25,12 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <TextView android:id="@+id/btn_back"
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="‹ 返回" android:textColor="@color/ios_blue"
-                    android:textSize="16sp" android:paddingVertical="8dp"
-                    android:clickable="true" android:focusable="true" />
+                <ImageView android:id="@+id/btn_back"
+                    android:layout_width="32dp" android:layout_height="32dp"
+                    android:padding="4dp" android:src="@drawable/ic_chevron_left"
+                    android:tint="@color/ios_label" android:clickable="true"
+                    android:focusable="true" android:contentDescription="@string/back"
+                    android:background="?android:attr/selectableItemBackground" />
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:layout_marginStart="8dp" android:text="@string/test_alarm_title"

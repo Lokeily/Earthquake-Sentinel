@@ -18,6 +18,10 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * 全屏地震预警页：锁屏之上弹出，红屏 + 大号倒计时 + 最大音量警报声 +
@@ -44,13 +48,16 @@ class AlertActivity : AppCompatActivity() {
     private lateinit var tvCountdown: TextView
     private lateinit var tvPlace: TextView
     private lateinit var tvMag: TextView
-    private lateinit var tvDetail: TextView
     private lateinit var tvLevel: TextView
     private lateinit var tvDamage: TextView
     private lateinit var btnDismiss: Button
-    private lateinit var tvTitle: TextView
     private lateinit var tvUnit: TextView
-    private lateinit var tvHint: TextView
+    private lateinit var tvCategory: TextView
+    private lateinit var tvFooter: TextView
+
+    // 底部"第X报：来自-距离-时间"行所需的、同一事件内不变化的字段（来源/发震时刻）
+    private var currentSource: String = ""
+    private var currentTimeMs: Long = 0L
 
     // 当前等级对应的文字配色（黄色面板为深色，其余为白色），供计时结束等场景复用
     private var themeTextColor: Int = android.graphics.Color.WHITE
@@ -90,6 +97,8 @@ class AlertActivity : AppCompatActivity() {
                     tvLevel.setTextColor(levelColor(currentLevel))
                     tvDamage.text = damageDescription(currentLevel)
                     tvDamage.setTextColor(levelColor(currentLevel))
+                    tvCategory.text = currentLevel.category()
+                    tvCategory.setTextColor(levelColor(currentLevel))
                     applyLevelTheme(currentLevel)
                     // 若仍在短语循环阶段（倒计时 10..1 尚未触发），切换到新等级短语
                     if (!countdownTriggered) {
@@ -99,7 +108,8 @@ class AlertActivity : AppCompatActivity() {
                     vibrate()
                 }
                 tvMag.text = magText(newMag)
-                updateDetail(intent)
+                val dist = intent.getDoubleExtra(EewService.EXTRA_DISTANCE, 0.0)
+                tvFooter.text = buildFooter(reportNum, dist)
             }
         }
     }
@@ -140,13 +150,12 @@ class AlertActivity : AppCompatActivity() {
         tvCountdown = findViewById(R.id.tv_countdown)
         tvPlace = findViewById(R.id.tv_place)
         tvMag = findViewById(R.id.tv_mag)
-        tvDetail = findViewById(R.id.tv_detail)
         tvLevel = findViewById(R.id.tv_level)
         tvDamage = findViewById(R.id.tv_damage)
         btnDismiss = findViewById(R.id.btn_dismiss)
-        tvTitle = findViewById(R.id.tv_title)
         tvUnit = findViewById(R.id.tv_unit)
-        tvHint = findViewById(R.id.tv_hint)
+        tvCategory = findViewById(R.id.tv_category)
+        tvFooter = findViewById(R.id.tv_footer)
 
         bindAlertData(intent)
 
@@ -196,6 +205,9 @@ class AlertActivity : AppCompatActivity() {
         val siteIntensity = intensityStr.toDoubleOrNull() ?: 0.0
         // 等级按用户脚下预估烈度划分（非震中震级）
         currentLevel = warningLevelByIntensity(siteIntensity)
+        // 同一事件内来源与发震时刻不随报数变化，先固化下来供底部行复用
+        currentSource = intent.getStringExtra(EewService.EXTRA_SOURCE) ?: ""
+        currentTimeMs = intent.getLongExtra(EewService.EXTRA_TIME, 0L)
 
         tvPlace.text = place
         tvMag.text = magText(mag)
@@ -205,9 +217,10 @@ class AlertActivity : AppCompatActivity() {
             if (currentLevel == WarningLevel.NONE) android.view.View.GONE else android.view.View.VISIBLE
         tvDamage.text = damageDescription(currentLevel)
         tvDamage.setTextColor(levelColor(currentLevel))
-        // "地震预警"标题与上方倒计时功能重复，去掉不啰嗦
-        tvTitle.visibility = android.view.View.GONE
-        updateDetail(intent)
+        tvCategory.text = currentLevel.category()
+        tvCategory.setTextColor(levelColor(currentLevel))
+        val distKm = intent.getDoubleExtra(EewService.EXTRA_DISTANCE, 0.0)
+        tvFooter.text = buildFooter(intent.getIntExtra(EewService.EXTRA_REPORT_NUM, 0), distKm)
 
         applyLevelTheme(currentLevel)
 
@@ -225,20 +238,44 @@ class AlertActivity : AppCompatActivity() {
     private fun magText(mag: Double): String = "%.1f级地震".format(mag)
 
     /**
-     * 四级预警破坏描述 + 避险指引。
-     * 烈度区间与破坏情况对齐《中国地震烈度表》(GB/T 17742-2020) 及
-     * 中国地震局预警等级标准（红≥7°灾害性 / 橙5-6°灾害性 / 黄3-4°告知性 / 蓝<3°告知性）。
+     * 四级预警的破坏描述（仅烈度区间与破坏现象）。
+     * 烈度区间对齐《中国地震烈度表》(GB/T 17742-2020) 与中国地震局预警等级标准
+     * （红≥7°灾害性 / 橙5-6°灾害性 / 黄3-4°告知性 / 蓝<3°告知性）。
+     * 不再附带"趴下、掩护、抓牢"等通用避险指引——
+     * 那是与底部固定文案重复、对低烈度场景反而误导的内容；
+     * 真正的紧急避险由警报声和应急演练承担，文字只描述地震本身。
      */
     private fun damageDescription(level: WarningLevel): String = when (level) {
         WarningLevel.BLUE ->
-            "预估烈度 1-2 度：多数人无感或轻微有感\n保持冷静，无需惊慌"
+            "预估烈度 1-2 度：多数人无感或轻微有感"
         WarningLevel.YELLOW ->
-            "预估烈度 3-4 度：室内多数人有感，悬挂物明显摆动\n就地避险，远离玻璃窗"
+            "预估烈度 3-4 度：室内多数人有感，悬挂物明显摆动"
         WarningLevel.ORANGE ->
-            "预估烈度 5-6 度：多数人站立不稳、惊逃户外，少数轻家具移动\n立即趴下，保护头部！"
+            "预估烈度 5-6 度：多数人站立不稳、惊逃户外，少数轻家具移动"
         WarningLevel.RED ->
-            "预估烈度 7 度及以上：物品掉落、家具倾倒，房屋可能破坏\n趴下、掩护、抓牢！！"
+            "预估烈度 7 度及以上：物品掉落、家具倾倒，房屋可能破坏"
         WarningLevel.NONE -> ""
+    }
+
+    /**
+     * 底部一行小字：第X报 · 来自哪里 · 距用户定位距离 · 发震时刻。
+     * 来源与发震时刻取自同事件固化的 currentSource / currentTimeMs（刷新报不改变），
+     * 报数与距离随刷新报文更新。
+     */
+    private fun buildFooter(reportNum: Int, distKm: Double): String {
+        val reportLabel = if (reportNum <= 0) "首报" else "第${reportNum}报"
+        val srcLabel = if (currentSource.isBlank()) "—" else currentSource
+        val distLabel = if (distKm > 0) "距您${distKm.toInt()}km" else "—"
+        val time = formatOriginTime(currentTimeMs)
+        return "$reportLabel · 来自$srcLabel · $distLabel · $time"
+    }
+
+    /** epoch 毫秒 → "HH:mm:ss"（北京时间）；0/负表示未知，返回占位符 */
+    private fun formatOriginTime(ms: Long): String {
+        if (ms <= 0) return "—"
+        val sdf = SimpleDateFormat("HH:mm:ss", Locale.CHINA)
+        sdf.timeZone = TimeZone.getTimeZone("Asia/Shanghai")
+        return sdf.format(Date(ms))
     }
 
     /**
@@ -276,17 +313,13 @@ class AlertActivity : AppCompatActivity() {
         }
 
         // 文字配色随等级背景翻转（黄色面板用纯黑，其余用白色）
-        tvTitle.setTextColor(themeTextColor)
         tvCountdown.setTextColor(themeTextColor)
         tvPlace.setTextColor(themeTextColor)
         tvMag.setTextColor(themeTextColor)
-        tvDetail.setTextColor(themeTextColor)
         tvUnit.setTextColor(themeTextColor)
-        // 底部操作区面板恒为半透明黑底（#E6000000），因此其文字恒为白色，
-        // 不随等级翻转，避免黄底预警时出现“黑字压黑底”看不见的问题。
-        tvHint.setTextColor(android.graphics.Color.WHITE)
         tvDamage.setTextColor(themeTextColor)
         tvLevel.setTextColor(themeTextColor)
+        tvCategory.setTextColor(themeTextColor)
 
         // 等级徽标背景与文字保持足够对比：黄底用白底深灰边徽标，深底用半透明白徽标
         tvLevel.background = makeLevelBadge(level)
@@ -295,11 +328,9 @@ class AlertActivity : AppCompatActivity() {
         if (lightBg) {
             clearTextShadow()
             // 黄底上小号说明文字容易发虚，稍微加粗一点点
-            tvDetail.paint.isFakeBoldText = true
             tvDamage.paint.isFakeBoldText = true
         } else {
             applyTextOutline()
-            tvDetail.paint.isFakeBoldText = false
             tvDamage.paint.isFakeBoldText = false
         }
     }
@@ -322,10 +353,9 @@ class AlertActivity : AppCompatActivity() {
         tvCountdown.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
         tvMag.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
         tvPlace.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
-        tvTitle.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
         tvLevel.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
-        tvDetail.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
         tvDamage.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
+        tvCategory.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
     }
 
     /**
@@ -336,17 +366,8 @@ class AlertActivity : AppCompatActivity() {
         tvCountdown.setShadowLayer(10f, 0f, 0f, android.graphics.Color.BLACK)
         tvMag.setShadowLayer(5f, 0f, 0f, android.graphics.Color.BLACK)
         tvPlace.setShadowLayer(5f, 0f, 0f, android.graphics.Color.BLACK)
-        tvTitle.setShadowLayer(4f, 0f, 0f, android.graphics.Color.BLACK)
         tvLevel.setShadowLayer(4f, 0f, 0f, android.graphics.Color.BLACK)
-    }
-
-    private fun updateDetail(intent: android.content.Intent) {
-        val dist = intent.getDoubleExtra(EewService.EXTRA_DISTANCE, 0.0)
-        val depth = intent.getDoubleExtra(EewService.EXTRA_DEPTH, 0.0)
-        // 五要素规范（中国地震局）：预警震级=震级 M（由 tvMag 展示）；
-        // EXTRA_INTENSITY 是用户所在地【预估烈度】，不得标注为"震级"。
-        val intensity = intent.getStringExtra(EewService.EXTRA_INTENSITY) ?: "-"
-        tvDetail.text = "震中距约 ${dist.toInt()} km · 预估烈度 ${intensity}度 · 深度 ${depth.toInt()} km"
+        tvCategory.setShadowLayer(3f, 0f, 0f, android.graphics.Color.BLACK)
     }
 
     private fun startCountdown(etaSeconds: Double) {
@@ -404,7 +425,6 @@ class AlertActivity : AppCompatActivity() {
         tvCountdown.setTextColor(themeTextColor)
         tvUnit.visibility = View.GONE
         // 震中地点是核心信息，倒计时结束后继续保持显示，绝不被替换
-        tvHint.text = "趴下、掩护、抓牢 · 远离玻璃窗与重物\n待震动停止后检查燃气阀门"
     }
 
     private fun boostAlarmVolume() {

@@ -3,6 +3,7 @@ package com.dianguard.app
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -20,6 +21,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 
 /**
  * 设置页（v1.0.17）：底部导航“设置”内容区。
@@ -34,17 +40,42 @@ class SettingsFragment : Fragment() {
     private lateinit var tvThemeTrigger: TextView
     private lateinit var tvLocationDisplay: TextView
     private lateinit var btnLoc: Button
-    private lateinit var btnTest: Button
-    private lateinit var btnSelfCheck: Button
-    private lateinit var btnCheckUpdate: Button
-    private lateinit var btnClearHistory: Button
-    private lateinit var btnDisclaimer: Button
-    private lateinit var tvAboutVersion: TextView
+    private lateinit var rowTest: View
+    private lateinit var rowMoreSettings: View
+
+    // BeeCLD 用户自注册源（可选数据源）
+    private lateinit var btnBeeCLDRegister: Button
+    private lateinit var etBeeCLDApi: EditText
+    private lateinit var btnBeeCLDSave: Button
+    private lateinit var btnBeeCLDDisable: Button
+    private lateinit var tvBeeCLDStatus: TextView
 
     // 防止初始化 setSelection 触发一次多余的 recreate
     private var themeReady = false
     // 防止 recreate 期间 Spinner 的 onItemSelected 再次触发（v1.1.1 修复频闪循环）
     @Volatile private var themeChanging = false
+
+    // 底部悬浮提示（BeeCLD 连接成功时浮现后隐去）
+    private var floatTip: TextView? = null
+
+    // 标记“刚点击了保存并连接、正在等待 beecld 连接成功广播”，避免对后续自动重连重复弹提示
+    @Volatile private var awaitingBeeCLD = false
+
+    /** 监听数据源连接成功广播（仅关心 beecld），由 EewConnectionManager.onOpen 发送 */
+    private val sourceConnectedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (intent?.action != EewService.ACTION_SOURCE_CONNECTED) return
+            val id = intent.getStringExtra(EewService.EXTRA_SOURCE_ID) ?: return
+            if (id == "beecld" && awaitingBeeCLD) {
+                awaitingBeeCLD = false
+                // onOpen 可能在 OkHttp 工作线程回调，切回主线程操作 UI
+                requireActivity().runOnUiThread {
+                    showBottomFloat(getString(R.string.beecld_connected_success))
+                    refreshBeeCLDStatus()
+                }
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -59,35 +90,41 @@ class SettingsFragment : Fragment() {
         tvThemeTrigger = root.findViewById(R.id.tv_theme_trigger)
         tvLocationDisplay = root.findViewById(R.id.tv_location_display)
         btnLoc = root.findViewById(R.id.btn_loc)
-        btnTest = root.findViewById(R.id.btn_test)
-        btnSelfCheck = root.findViewById(R.id.btn_selfcheck)
-        btnCheckUpdate = root.findViewById(R.id.btn_check_update)
-        btnClearHistory = root.findViewById(R.id.btn_clear_history)
-        btnDisclaimer = root.findViewById(R.id.btn_disclaimer)
-        tvAboutVersion = root.findViewById(R.id.tv_about_version)
+        rowTest = root.findViewById(R.id.row_test)
+        rowMoreSettings = root.findViewById(R.id.row_more_settings)
+        btnBeeCLDRegister = root.findViewById(R.id.btn_beecld_register)
+        etBeeCLDApi = root.findViewById(R.id.et_beecld_api)
+        btnBeeCLDSave = root.findViewById(R.id.btn_beecld_save)
+        btnBeeCLDDisable = root.findViewById(R.id.btn_beecld_disable)
+        tvBeeCLDStatus = root.findViewById(R.id.tv_beecld_status)
+        floatTip = root.findViewById(R.id.float_tip)
 
         AppConfig.init(requireContext())
         setupIntensitySpinner()
         setupThemeSpinner()
         refreshLocationDisplay()
 
+        // 注册数据源连接成功广播（仅当本页可见时接收，避免后台重复弹提示）
+        LocalBroadcastManager.getInstance(requireContext()).registerReceiver(
+            sourceConnectedReceiver,
+            IntentFilter(EewService.ACTION_SOURCE_CONNECTED)
+        )
+
         btnLoc.setOnClickListener { fetchCurrentLocation() }
-        btnTest.setOnClickListener {
-            saveConfig()
+        rowTest.setOnClickListener {
             startActivity(Intent(requireContext(), TestAlarmActivity::class.java))
         }
-        btnSelfCheck.setOnClickListener { SelfCheck.showDialog(requireContext()) }
-        btnCheckUpdate.setOnClickListener { checkUpdate() }
-        btnDisclaimer.setOnClickListener {
-            startActivity(Intent(requireContext(), DisclaimerActivity::class.java))
+        rowMoreSettings.setOnClickListener {
+            (activity as? MainActivity)?.openMoreSettings()
         }
-        btnClearHistory.setOnClickListener { confirmClearHistory() }
 
-        try {
-            tvAboutVersion.text = getString(R.string.about_version, BuildConfig.VERSION_NAME)
-        } catch (_: Exception) {
-            tvAboutVersion.text = ""
-        }
+        // BeeCLD：回填已保存的 token，并接线引导 / 保存 / 停用
+        etBeeCLDApi.setText(AppConfig.beecldToken)
+        btnBeeCLDRegister.setOnClickListener { openBeeCLDGuide() }
+        btnBeeCLDSave.setOnClickListener { saveBeeCLDConfig() }
+        btnBeeCLDDisable.setOnClickListener { disableBeeCLD() }
+        refreshBeeCLDStatus()
+
         return root
     }
 
@@ -206,37 +243,97 @@ class SettingsFragment : Fragment() {
     private fun saveConfig() {
     }
 
-    /** 清空预警历史记录（带确认弹窗） */
-    private fun confirmClearHistory() {
-        if (QuakeHistory.all().isEmpty()) {
-            Toast.makeText(requireContext(), "暂无历史记录", Toast.LENGTH_SHORT).show()
-            return
-        }
+    // ===================== BeeCLD 用户自注册源（可选） =====================
+
+    /** 打开引导弹窗，说明如何注册并获取 API，再由用户点「前往注册」跳官网 */
+    private fun openBeeCLDGuide() {
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
-            .setTitle(R.string.history_clear)
-            .setMessage(R.string.history_clear_confirm)
-            .setPositiveButton(R.string.history_clear) { _, _ ->
-                HistoryFragment.clearAll()
-                Toast.makeText(requireContext(), "已清空预警历史记录", Toast.LENGTH_SHORT).show()
-            }
+            .setTitle(R.string.beecld_guide_title)
+            .setMessage(R.string.beecld_guide_msg)
+            .setPositiveButton(R.string.beecld_guide_go) { _, _ -> openBeeCLDWebsite() }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    // ===================== 检查更新（手动） =====================
+    /** 用浏览器打开 BeeCLD 注册/登录官网 */
+    private fun openBeeCLDWebsite() {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://auth.beecld.com/"))
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(
+                requireContext(),
+                "无法打开浏览器，请手动访问 https://auth.beecld.com/",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
-    private fun checkUpdate() {
-        Toast.makeText(requireContext(), "正在检查更新…", Toast.LENGTH_SHORT).show()
-        AppUpdateChecker.check { info ->
-            val act = activity ?: return@check
-            act.runOnUiThread {
-                if (!isAdded) return@runOnUiThread
-                if (info.available) {
-                    AppUpdater.showUpdateDialog(act as AppCompatActivity, info)
-                } else {
-                    Toast.makeText(requireContext(), getString(R.string.update_none), Toast.LENGTH_SHORT).show()
-                }
+    /** 保存 token 并启用；服务在运行时直接起连，否则仅持久化待监听启动后由 connectAll 自动接入 */
+    private fun saveBeeCLDConfig() {
+        val token = etBeeCLDApi.text.toString().trim()
+        if (token.isBlank()) {
+            Toast.makeText(requireContext(), getString(R.string.beecld_empty), Toast.LENGTH_SHORT).show()
+            return
+        }
+        AppConfig.beecldToken = token
+        AppConfig.beecldEnabled = true
+        val svc = EewService.instance
+        if (svc != null) {
+            svc.applyBeeCLDConfig()
+            awaitingBeeCLD = true
+            Toast.makeText(requireContext(), getString(R.string.beecld_saved), Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(requireContext(), getString(R.string.beecld_service_off), Toast.LENGTH_LONG).show()
+        }
+        refreshBeeCLDStatus()
+    }
+
+    /**
+     * 底部悬浮提示：淡入显示 msg，约 2.2s 后淡出隐去（模拟用户要求的“悬浮窗弹出又隐去”）。
+     * 用 ViewPropertyAnimator 做透明度过渡；浮层布局位于 fragment_settings 根 FrameLayout 底部居中。
+     */
+    private fun showBottomFloat(msg: String) {
+        val tip = floatTip ?: return
+        tip.text = msg
+        tip.alpha = 0f
+        tip.translationY = 20f
+        tip.scaleX = 0.96f
+        tip.scaleY = 0.96f
+        tip.visibility = View.VISIBLE
+        tip.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+            .setDuration(260)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                tip.postDelayed({
+                    tip.animate().alpha(0f).translationY(20f)
+                        .setDuration(360)
+                        .setInterpolator(AccelerateInterpolator())
+                        .withEndAction { tip.visibility = View.GONE }
+                }, 2200)
             }
+    }
+
+    /** 停用 BeeCLD：断开连接，但保留 token 以便日后一键重新启用 */
+    private fun disableBeeCLD() {
+        if (!AppConfig.beecldEnabled && AppConfig.beecldToken.isBlank()) {
+            Toast.makeText(requireContext(), getString(R.string.beecld_status_disabled), Toast.LENGTH_SHORT).show()
+            return
+        }
+        AppConfig.beecldEnabled = false
+        EewService.instance?.applyBeeCLDConfig()
+        Toast.makeText(requireContext(), getString(R.string.beecld_disabled), Toast.LENGTH_SHORT).show()
+        refreshBeeCLDStatus()
+    }
+
+    /** 刷新 BeeCLD 状态文本：依据启用状态与实时连接情况 */
+    private fun refreshBeeCLDStatus() {
+        val enabled = AppConfig.beecldEnabled
+        val connected = EewService.instance?.connMgr?.connectedSources?.contains("beecld") == true
+        tvBeeCLDStatus.text = when {
+            !enabled -> getString(R.string.beecld_status_disabled)
+            connected -> getString(R.string.beecld_status_connected)
+            else -> getString(R.string.beecld_status_enabled)
         }
     }
 
@@ -254,6 +351,8 @@ class SettingsFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
+        // 离开页面/切到后台时注销广播，避免接收已不需要的连接成功回调
+        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(sourceConnectedReceiver)
         saveConfig()
     }
 }

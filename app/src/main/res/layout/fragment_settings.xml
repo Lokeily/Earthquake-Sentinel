@@ -1,19 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 设置页（v1.0.17）：底部导航“设置”内容区（原为独立 Activity，现改为 Fragment） -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 设置页（v1.3.1 重排版）：分组主设置页，二级菜单见 fragment_more_settings.xml -->
+<!-- 根布局用 FrameLayout：承载滚动内容与底部悬浮提示 float_tip（BeeCLD 连接成功时浮现后隐去） -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ios_grouped_bg"
-    android:fillViewport="true"
-    android:scrollbars="none">
+    android:background="@color/ios_grouped_bg">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="32dp">
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="32dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -23,7 +28,15 @@
             android:textSize="22sp"
             android:textStyle="bold" />
 
-        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+        <!-- ===================== 基础设置 ===================== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/section_basic"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="13sp" />
 
         <!-- 参考位置卡片 -->
         <LinearLayout
@@ -53,14 +66,6 @@
                 android:textStyle="bold"
                 android:textAllCaps="false"
                 android:stateListAnimator="@null" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/settings_location_hint"
-                android:textColor="@color/ios_label_secondary"
-                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/tv_location_display"
@@ -129,6 +134,8 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
         <!-- 外观 / 深色模式 -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -170,102 +177,197 @@
                     android:clickable="true"
                     android:focusable="true" />
             </FrameLayout>
+        </LinearLayout>
+
+        <!-- ===================== 数据源 ===================== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/section_source"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="13sp" />
+
+        <!-- BeeCLD 用户自注册源（可选数据源） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/beecld_title"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:text="@string/settings_theme_hint"
+                android:text="@string/beecld_desc"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_beecld_register"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_button_primary"
+                android:text="@string/beecld_register_btn"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <EditText
+                android:id="@+id/et_beecld_api"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_input"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:hint="@string/beecld_api_hint"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp"
+                android:inputType="text"
+                android:importantForAutofill="no" />
+
+            <Button
+                android:id="@+id/btn_beecld_save"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_button_primary"
+                android:text="@string/beecld_save_btn"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_beecld_disable"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_button_secondary"
+                android:text="@string/beecld_disable_btn"
+                android:textColor="@color/ios_blue"
+                android:textSize="14sp"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <TextView
+                android:id="@+id/tv_beecld_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/beecld_status_disabled"
                 android:textColor="@color/ios_label_secondary"
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="24dp" />
-
-        <Button
-            android:id="@+id/btn_test"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:background="@drawable/bg_button_primary"
-            android:text="@string/btn_test"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
-
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
-
-        <Button
-            android:id="@+id/btn_selfcheck"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:background="@drawable/bg_button_secondary"
-            android:text="@string/btn_selfcheck"
-            android:textColor="@color/ios_blue"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
-
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
-
-        <Button
-            android:id="@+id/btn_check_update"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_button_secondary"
-            android:text="@string/btn_check_update"
-            android:textColor="@color/ios_blue"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
-
-        <Space android:layout_width="match_parent" android:layout_height="10dp" />
-
+        <!-- ===================== 工具 ===================== -->
         <TextView
-            android:id="@+id/tv_about_version"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/section_tools"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="13sp" />
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:textColor="@color/ios_label_secondary"
-            android:textSize="12sp" />
+            android:orientation="vertical"
+            android:background="@drawable/bg_card">
 
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+            <!-- 测试报警 -->
+            <LinearLayout
+                android:id="@+id/row_test"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
 
-        <Button
-            android:id="@+id/btn_clear_history"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_button_secondary"
-            android:text="@string/history_clear_settings"
-            android:textColor="@color/alert_red"
-            android:textSize="14sp"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/btn_test"
+                    android:textColor="@color/ios_label"
+                    android:textSize="16sp" />
 
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/ios_label_secondary" />
+            </LinearLayout>
 
-        <Button
-            android:id="@+id/btn_disclaimer"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_button_secondary"
-            android:text="@string/btn_disclaimer"
-            android:textColor="@color/ios_blue"
-            android:textSize="14sp"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1px"
+                android:background="@color/ios_separator" />
 
-        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+            <!-- 更多设置（下钻） -->
+            <LinearLayout
+                android:id="@+id/row_more_settings"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_hint"
-            android:textColor="@color/ios_label_secondary"
-            android:textSize="12sp" />
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/more_settings_title"
+                    android:textColor="@color/ios_label"
+                    android:textSize="16sp" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/ios_label_secondary" />
+            </LinearLayout>
+        </LinearLayout>
 
     </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <!-- 底部悬浮提示：BeeCLD 连接成功时浮现，约 2.2s 后淡出隐去（见 SettingsFragment.showBottomFloat） -->
+    <TextView
+        android:id="@+id/float_tip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="28dp"
+        android:background="@drawable/bg_float_tip"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="12dp"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:alpha="0"
+        android:visibility="gone" />
+</FrameLayout>

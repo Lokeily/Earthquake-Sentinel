@@ -50,89 +50,76 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:overScrollMode="never">
 
-        <FrameLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="20dp">
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/tv_level"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text=""
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_level_badge"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="5dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tv_place"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingBottom="16dp">
+                android:layout_marginTop="12dp"
+                android:text="未知地区"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center" />
 
-                <TextView
-                    android:id="@+id/tv_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/alert_title"
-                    android:textColor="#FFFFFF"
-                    android:textSize="28sp"
-                    android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tv_mag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="0.0级地震"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/tv_level"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text=""
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:background="@drawable/bg_level_badge"
-                    android:paddingHorizontal="14dp"
-                    android:paddingVertical="5dp"
-                    android:visibility="gone" />
+            <TextView
+                android:id="@+id/tv_category"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text=""
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center" />
 
-                <TextView
-                    android:id="@+id/tv_place"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="未知地区"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:gravity="center" />
-
-                <TextView
-                    android:id="@+id/tv_mag"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="0.0级地震"
-                    android:textColor="#FFFFFF"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_detail"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text=""
-                    android:textColor="#FFE5E5"
-                    android:textSize="14sp"
-                    android:gravity="center" />
-
-                <TextView
-                    android:id="@+id/tv_damage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:paddingHorizontal="12dp"
-                    android:text=""
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp"
-                    android:gravity="center"
-                    android:lineSpacingExtra="4dp" />
-            </LinearLayout>
-        </FrameLayout>
+            <TextView
+                android:id="@+id/tv_damage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:paddingHorizontal="12dp"
+                android:text=""
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp" />
+        </LinearLayout>
     </ScrollView>
 
     <!-- 底部操作区：高度自适应，始终贴底；半透明黑底，文字恒为白色 -->
@@ -147,14 +134,14 @@
         android:background="#E6000000">
 
         <TextView
-            android:id="@+id/tv_hint"
+            android:id="@+id/tv_footer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/alert_hint"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
-            android:layout_marginBottom="12dp"
-            android:gravity="center" />
+            android:text=""
+            android:textColor="#CCFFFFFF"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:layout_marginBottom="10dp" />
 
         <Button
             android:id="@+id/btn_dismiss"

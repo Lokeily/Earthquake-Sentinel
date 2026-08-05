@@ -16,9 +16,25 @@
     <string name="location_display_empty">尚未获取位置，请点击上方“获取当前位置”</string>
     <string name="settings_threshold_title">预警阈值（仅烈度）</string>
     <string name="settings_threshold_hint">仅达到所选烈度才会全屏告警：3°明显有感（推荐）/ 2°轻微有感（更灵敏，但会频繁打扰）/ 4°强烈有感。默认 3°可避免告警疲劳。</string>
-    <string name="settings_hint">测试告警会立即弹出全屏倒计时与警报声，用于验证效果，无需等待真实地震。</string>
     <string name="settings_theme_title">外观</string>
     <string name="settings_theme_hint">深色档位使用纯黑背景：OLED / AMOLED 屏上黑色像素直接熄灭，既省电又能减少长期常亮的烧屏风险，适合把旧手机插电常驻当哨兵的用法。</string>
+    <string name="beecld_title">BeeCLD 地震预警（可选数据源）</string>
+    <string name="beecld_desc">独立的地震预警节点（覆盖中国大陆）。需你自行前往其官网注册并获取 API 密钥后填到此处，即可作为额外数据源增强预警覆盖。本应用不提供账号，也不收集你的密钥。</string>
+    <string name="beecld_register_btn">去注册并获取 API</string>
+    <string name="beecld_api_hint">在此粘贴从 BeeCLD 获取的 API 密钥</string>
+    <string name="beecld_save_btn">保存并连接</string>
+    <string name="beecld_disable_btn">断开并停用</string>
+    <string name="beecld_status_enabled">已启用（连接中）</string>
+    <string name="beecld_status_connected">已启用并已连接</string>
+    <string name="beecld_status_disabled">未启用</string>
+    <string name="beecld_guide_title">如何获取 BeeCLD API</string>
+    <string name="beecld_guide_msg">1. 点击「前往注册」打开 BeeCLD 官网；\n2. 注册账号并登录；\n3. 在控制台生成 / 复制你的 API 密钥；\n4. 返回本页粘贴密钥，点「保存并连接」即可开始接收预警。</string>
+    <string name="beecld_guide_go">前往注册</string>
+    <string name="beecld_saved">已保存，正在连接</string>
+    <string name="beecld_disabled">已断开并停用 BeeCLD</string>
+    <string name="beecld_empty">请先填写 API 密钥</string>
+    <string name="beecld_service_off">配置已保存；开启「预警监听」后将自动连接 BeeCLD</string>
+    <string name="beecld_connected_success">BeeCLD 已成功启用</string>
     <string name="settings_keepalive_title">后台保活（老手机必看）</string>
     <string name="guide_enable_text">已开启预警监听，但要在老手机上真正生效，还需完成以下设置：\n\n1. 已授予通知 / 定位 / 悬浮窗权限（如未授予请到系统设置开启）；\n2. 在「设置」页点“获取当前位置”写入参考点；\n3. 点「关闭电池优化」，并把本应用加入自启动 / 后台白名单（见「保活设置引导」）；\n4. 完成后预警才能在锁屏、后台甚至 App 未运行时强制弹出。</string>
     <string name="btn_loc">获取当前位置</string>
@@ -48,6 +64,7 @@
     <string name="selfcheck_recheck">重新检测</string>
     <string name="sources_title">数据来源（%1$d 路官方预警）</string>
     <string name="sources_hint_disabled">开启预警监听后，此处将实时显示 %1$d 路数据源的连接与更新状态</string>
+    <string name="source_status_disabled">未启用</string>
     <string name="source_backup_name">备用探测源（独立兜底）</string>
     <string name="btn_battery">关闭电池优化</string>
     <string name="btn_guide">保活设置引导（防后台被杀）</string>
@@ -88,7 +105,6 @@
     <string name="level_red_phrase">强破坏地震，请紧急避险</string>
     <string name="alert_title">地震预警</string>
     <string name="alert_dismiss">我已安全 / 停止警报</string>
-    <string name="alert_hint"></string>
     <string name="update_title">发现新版本</string>
     <string name="update_message">已有新版本 v%1$s 可用，建议尽快更新以获得最新功能与修复。</string>
     <string name="update_btn_go">前往更新</string>
@@ -123,4 +139,11 @@
     <string name="disclaimer_decline">不同意</string>
     <string name="disclaimer_first_launch_title">开启地震预警服务前</string>
     <string name="disclaimer_first_launch_msg">请先阅读并同意《免责声明与用户协议》。启用预警服务后，您将实时接收地震预警；预警仅作为避险参考，未收到警报但感受到地震时仍需避险。\n\n您基于本软件做出任何行为导致的风险和后果均由您自行承担。</string>
+    <string name="more_settings_title">更多设置</string>
+    <string name="section_basic">基础设置</string>
+    <string name="section_source">数据源</string>
+    <string name="section_tools">工具</string>
+    <string name="more_section_common">通用</string>
+    <string name="more_section_about">关于</string>
+    <string name="back">返回</string>
 </resources>

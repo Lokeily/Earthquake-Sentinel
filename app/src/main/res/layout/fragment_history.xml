@@ -166,7 +166,8 @@
             android:id="@+id/history_list"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
+            android:orientation="vertical"
+            android:layoutAnimation="@anim/list_layout_anim" />
 
         <Space android:layout_width="match_parent" android:layout_height="16dp" />
 

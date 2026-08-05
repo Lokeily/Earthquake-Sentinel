@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部悬浮提示背景：深色半透明圆角胶囊，叠加轻微阴影增强“悬浮”感 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#CC0B0B0F" />
+            <corners android:radius="22dp" />
+        </shape>
+    </item>
+</layer-list>

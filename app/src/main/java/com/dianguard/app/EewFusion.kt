@@ -62,6 +62,14 @@ object EewFusion {
     /** 坐标死区（km）：新坐标偏离上次输出 < 此值则沿用旧坐标，防止高频震荡 */
     private const val COORD_DEAD_ZONE_KM = 15.0
 
+    /**
+     * 事件级状态表的「最后活动」保留时长。
+     * lastOutput / eventVersion 两张表按 quakeKey 累积，此前只增不减——作为常驻前台服务，
+     * 其占用随累计处理的地震次数单调增长。现记录每 quakeKey 的最后处理时间，超过此 TTL
+     * 即随 cleanupStale 一同淘汰，使内存占用在长周期运行下有界。
+     */
+    private const val STALE_TOUCH_TTL_MS = 30 * 60_000L // 30 分钟
+
     // ===== 可靠性追踪 + 事件状态 =====
     private val reliability = ConcurrentHashMap<String, SourceReliability>()
     /** 每事件的版本计数器（Key=quakeKey），不同地震独立递增 */
@@ -69,6 +77,8 @@ object EewFusion {
     /** 每事件上次输出的坐标（用于死区判断） */
     private data class LastOutput(val lat: Double, val lon: Double)
     private val lastOutput = ConcurrentHashMap<String, LastOutput>()
+    /** 每 quakeKey 的最后处理时间（驱动上述两张事件表的 TTL 淘汰） */
+    private val lastTouch = ConcurrentHashMap<String, Long>()
 
     fun initSources() {
         for (src in EEW_SOURCES) {
@@ -108,6 +118,7 @@ object EewFusion {
         }
 
         reports.add(BufferedReport(eew, sourceId, now, eew.reportNum))
+        lastTouch[quakeKey] = now   // 标记事件活动时间，供 cleanupStale TTL 淘汰
 
         // 检查是否已有足够时间/足够多源
         val firstMs = reports.minOf { it.receivedMs }
@@ -142,6 +153,19 @@ object EewFusion {
             if (reports.all { it.receivedMs < cutoff }) {
                 Log.w(TAG, "融合超时丢弃: $key (${reports.size} 源)")
                 it.remove()
+            }
+        }
+
+        // 淘汰长期无活动事件的状态，防止 lastOutput / eventVersion 随运行时间无限增长。
+        val touchCutoff = now - STALE_TOUCH_TTL_MS
+        val tit = lastTouch.entries.iterator()
+        while (tit.hasNext()) {
+            val entry = tit.next()
+            if (entry.value < touchCutoff) {
+                val k = entry.key
+                tit.remove()
+                lastOutput.remove(k)
+                eventVersion.remove(k)
             }
         }
     }

@@ -20,6 +20,18 @@
              罕见生僻字由系统字体兜底，不影响阅读。 -->
         <item name="android:fontFamily">@font/dianguard_zh</item>
         <item name="fontFamily">@font/dianguard_zh</item>
+
+        <!-- 统一的柔和过场：二级页面淡入淡出，避免生硬跳变。
+             告警页 Theme.Dianguard.Alert 不继承本项，保持瞬时弹出（生命安全优先）。 -->
+        <item name="android:windowAnimationStyle">@style/WindowAnimDianguard</item>
+    </style>
+
+    <!-- 柔和窗口过场动画（仅主应用主题引用） -->
+    <style name="WindowAnimDianguard">
+        <item name="android:windowEnterAnimation">@anim/fade_in</item>
+        <item name="android:windowExitAnimation">@anim/fade_out</item>
+        <item name="android:windowShowAnimation">@anim/fade_in</item>
+        <item name="android:windowHideAnimation">@anim/fade_out</item>
     </style>
 
     <!-- 全屏告警主题：全屏、锁屏可见。背景色由 AlertActivity 按预警等级动态设置，

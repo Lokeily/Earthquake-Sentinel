@@ -73,15 +73,51 @@ class MainActivity : AppCompatActivity() {
     /** 切换到指定 Tab：显示对应 Fragment、隐藏其余，并刷新选中态着色 */
     fun selectTab(index: Int) {
         currentTabIndex = index
+        // 若正位于「更多设置」二级页，切 Tab 前先退出该页，避免叠加
+        val fmPre = supportFragmentManager
+        if (fmPre.backStackEntryCount > 0) fmPre.popBackStackImmediate()
         val (home, history, settings) = ensureFragments()
         val fm = supportFragmentManager
         val tx = fm.beginTransaction()
+        // 切换 Tab 时内容交叉淡入淡出，避免生硬硬切
+        tx.setCustomAnimations(R.anim.frag_fade_in, R.anim.frag_fade_out)
         val map = mapOf(TAB_HOME to home, TAB_HISTORY to history, TAB_SETTINGS to settings)
         map.forEach { (i, f) ->
             if (i == index) tx.show(f) else tx.hide(f)
         }
         tx.commitNow()
         updateTabUi(index)
+    }
+
+    /**
+     * 进入「更多设置」二级菜单：隐藏设置页，叠加 MoreSettingsFragment 并加入返回栈。
+     * 返回键（系统或页内「返回」）会 pop 回设置页。
+     */
+    fun openMoreSettings() {
+        val fm = supportFragmentManager
+        val settings = fm.findFragmentByTag("settings") as? SettingsFragment
+        var more = fm.findFragmentByTag("more_settings") as? MoreSettingsFragment
+        val tx = fm.beginTransaction()
+        if (settings != null) tx.hide(settings)
+        if (more == null) {
+            more = MoreSettingsFragment()
+            tx.add(R.id.fragment_container, more, "more_settings")
+        } else {
+            tx.show(more)
+        }
+        // 柔和过场：二级页从右侧滑入 + 淡入；返回时滑出，避免生硬跳变
+        tx.setCustomAnimations(R.anim.slide_in_right, 0, 0, R.anim.slide_out_right)
+        tx.addToBackStack("more_settings")
+        tx.commit()
+    }
+
+    /** 返回键：优先退出「更多设置」二级页，否则走默认（退出 Activity） */
+    override fun onBackPressed() {
+        if (supportFragmentManager.backStackEntryCount > 0) {
+            supportFragmentManager.popBackStack()
+        } else {
+            super.onBackPressed()
+        }
     }
 
     /** 确保三个 Fragment 已 add 到容器（重建时复用系统保留的实例） */

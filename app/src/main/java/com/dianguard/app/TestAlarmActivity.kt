@@ -35,7 +35,7 @@ class TestAlarmActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_test_alarm)
 
-        findViewById<TextView>(R.id.btn_back).setOnClickListener { finish() }
+        findViewById<View>(R.id.btn_back).setOnClickListener { finish() }
         EewVoice.init(application)
 
         // 点击配置卡片 → 打开半遮蔽面板
@@ -75,13 +75,21 @@ class TestAlarmActivity : AppCompatActivity() {
     }
 
     private fun showConfigPanel() {
-        findViewById<View>(R.id.overlay_config).visibility = View.VISIBLE
+        val overlay = findViewById<View>(R.id.overlay_config)
+        overlay.animate().cancel()
+        overlay.alpha = 0f
+        overlay.visibility = View.VISIBLE
+        overlay.animate().alpha(1f).setDuration(220).start()
     }
 
     private fun hideConfigPanel() {
-        findViewById<View>(R.id.overlay_config).visibility = View.GONE
+        val overlay = findViewById<View>(R.id.overlay_config)
+        overlay.animate().cancel()
         simScheduled = false
         btnStartSim.text = "开始模拟（5 秒后触发）"
+        overlay.animate().alpha(0f).setDuration(180)
+            .withEndAction { overlay.visibility = View.GONE }
+            .start()
     }
 
     /**
@@ -199,6 +207,8 @@ class TestAlarmActivity : AppCompatActivity() {
                 "${fallback}附近${distKm.toInt()}km（模拟震中）"
             }
             val eventId = "SIM-${System.currentTimeMillis()}"
+            val simSource = "模拟预警"
+            val simTimeMs = System.currentTimeMillis()
 
             runOnUiThread {
                 // 第1报：首报震级
@@ -212,6 +222,8 @@ class TestAlarmActivity : AppCompatActivity() {
                     putExtra(EewService.EXTRA_INTENSITY, firstIntensity)
                     putExtra(EewService.EXTRA_DEPTH, depth)
                     putExtra(EewService.EXTRA_REPORT_NUM, 1)
+                    putExtra(EewService.EXTRA_SOURCE, simSource)
+                    putExtra(EewService.EXTRA_TIME, simTimeMs)
                 }
                 startActivity(intent)
 
@@ -233,12 +245,12 @@ class TestAlarmActivity : AppCompatActivity() {
 
                     // 第2报（中间报告号）
                     handler.postDelayed({
-                        sendSimRefresh(eventId, midMag, place, distKm, midEta, midIntensity, depth, 2)
+                        sendSimRefresh(eventId, midMag, place, distKm, midEta, midIntensity, depth, 2, simSource, simTimeMs)
                     }, midDelay)
 
                     // 第3报（最终报告号）
                     handler.postDelayed({
-                        sendSimRefresh(eventId, finalMag, place, distKm, finalEta, finalIntensity, depth, 3)
+                        sendSimRefresh(eventId, finalMag, place, distKm, finalEta, finalIntensity, depth, 3, simSource, simTimeMs)
                     }, finalDelay)
                 } else {
                     // 小跨度升级（如 4.0→5.5）：单次修正
@@ -246,7 +258,7 @@ class TestAlarmActivity : AppCompatActivity() {
                     val remainEta = etaSec - delayMs / 1000.0
                     val lastIntensity = "%.1f".format(estimateSiteIntensity(lastReport, distKm, depth))
                     handler.postDelayed({
-                        sendSimRefresh(eventId, lastReport, place, distKm, remainEta, lastIntensity, depth, 2)
+                        sendSimRefresh(eventId, lastReport, place, distKm, remainEta, lastIntensity, depth, 2, simSource, simTimeMs)
                     }, delayMs)
                 }
             }
@@ -256,7 +268,8 @@ class TestAlarmActivity : AppCompatActivity() {
     /** 发送模拟后续报广播 */
     private fun sendSimRefresh(
         eventId: String, mag: Double, place: String,
-        distKm: Double, eta: Double, intensity: String, depth: Double, reportNum: Int
+        distKm: Double, eta: Double, intensity: String, depth: Double, reportNum: Int,
+        sourceName: String, timeMs: Long
     ) {
         val refresh = Intent(EewService.ACTION_REFRESH).apply {
             putExtra(EewService.EXTRA_EVENT_ID, eventId)
@@ -267,6 +280,8 @@ class TestAlarmActivity : AppCompatActivity() {
             putExtra(EewService.EXTRA_INTENSITY, intensity)
             putExtra(EewService.EXTRA_DEPTH, depth)
             putExtra(EewService.EXTRA_REPORT_NUM, reportNum)
+            putExtra(EewService.EXTRA_SOURCE, sourceName)
+            putExtra(EewService.EXTRA_TIME, timeMs)
         }
         androidx.localbroadcastmanager.content.LocalBroadcastManager
             .getInstance(this@TestAlarmActivity).sendBroadcast(refresh)

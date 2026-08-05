@@ -113,6 +113,8 @@ class HistoryFragment : Fragment() {
 
         tvEmpty.visibility = View.GONE
         featureCard.visibility = View.VISIBLE
+        featureCard.alpha = 0f
+        featureCard.animate().alpha(1f).setDuration(280).start()
 
         // 顶部特色卡片：取最新一条
         bindFeatureCard(records[0])

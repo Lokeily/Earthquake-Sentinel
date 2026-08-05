@@ -20,7 +20,8 @@ data class Eew(
     val longitude: Double,
     val magnitude: Double,
     val depthKm: Double,
-    val maxIntensity: String  // 预估最大烈度（如 "5" / "5-")
+    val maxIntensity: String, // 预估最大烈度（如 "5" / "5-")
+    val originMs: Long = 0L   // 发震时刻 epoch 毫秒；0 表示未知（解析失败）。用于“仅推送开启监听后发生的地震”过滤。
 )
 
 /**
@@ -98,7 +99,8 @@ fun parseEew(raw: String): Eew? {
         val eventId = obj.optString("EventID", id)
         val reportNum = obj.optInt("ReportNum", 1)
         val originTime = obj.optString("OriginTime", "")
-        Eew(id, eventId, reportNum, originTime, hypo, lat, lon, mag, depth, maxInt)
+        val originMs = parseOriginTimeMs(originTime)
+        Eew(id, eventId, reportNum, originTime, hypo, lat, lon, mag, depth, maxInt, originMs)
     } catch (_: Exception) {
         null
     }
@@ -167,8 +169,13 @@ fun parseExternalEew(raw: String): Eew? {
             is String -> timeVal.toString().ifBlank { eventId }
             else -> eventId
         }
+        val originMs = when (timeVal) {
+            is Number -> if (timeVal.toLong() > 1_000_000_000_000L) timeVal.toLong() else timeVal.toLong() * 1000L
+            is String -> parseOriginTimeMs(timeVal.toString())
+            else -> 0L
+        }
         val id = data.optString("id", eventId)
-        Eew(id, eventId, reportNum, originTime, hypo, lat, lon, mag, depth, maxInt)
+        Eew(id, eventId, reportNum, originTime, hypo, lat, lon, mag, depth, maxInt, originMs)
     } catch (_: Exception) {
         null
     }
@@ -180,6 +187,36 @@ private fun formatUtc8(value: Long): String {
     fmt.timeZone = TimeZone.getTimeZone("GMT+8")
     val millis = if (value > 1_000_000_000_000L) value else value * 1000L
     return fmt.format(millis)
+}
+
+/**
+ * 把发震时刻文本解析为 epoch 毫秒（统一收口，供各解析器填充 Eew.originMs）。
+ * 支持：
+ *  - 纯数字 → 视为 epoch（>1e12 毫秒，否则秒）；
+ *  - "yyyy-MM-dd HH:mm:ss"（北京时，Wolfx CENC 主流格式）；
+ *  - "yyyy-MM-dd'T'HH:mm:ss"（含尾部 'Z' 时按北京时近似，海外源极少用）。
+ * 解析失败返回 0（未知），调用方据此走“不依赖发震时刻”的保守路径。
+ */
+fun parseOriginTimeMs(s: String): Long {
+    val t = s.trim()
+    if (t.isEmpty()) return 0L
+    if (t.all { it.isDigit() }) {
+        val v = t.toLongOrNull() ?: return 0L
+        return if (v > 1_000_000_000_000L) v else v * 1000L
+    }
+    // "yyyy-MM-dd HH:mm:ss"（Asia/Shanghai）
+    try { ORIGIN_FMT_SH.parse(t)?.time?.let { return it } } catch (_: Exception) { }
+    // "yyyy-MM-dd'T'HH:mm:ss" / 尾部 'Z'
+    val iso = if (t.endsWith("Z", ignoreCase = true)) t.removeSuffix("Z") else t
+    try { ORIGIN_FMT_ISO.parse(iso)?.time?.let { return it } } catch (_: Exception) { }
+    return 0L
+}
+
+private val ORIGIN_FMT_SH = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+    timeZone = TimeZone.getTimeZone("Asia/Shanghai")
+}
+private val ORIGIN_FMT_ISO = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+    timeZone = TimeZone.getTimeZone("Asia/Shanghai")
 }
 
 /**
@@ -245,6 +282,22 @@ fun WarningLevel.label(): String = when (this) {
     WarningLevel.ORANGE -> "橙色预警"
     WarningLevel.YELLOW -> "黄色预警"
     WarningLevel.BLUE -> "蓝色预警"
+    WarningLevel.NONE -> ""
+}
+
+/**
+ * 等级对应的地震类别描述（用于告警页"描述地震"，替代原冗余的固定避险提示）。
+ * 按用户所在地预估烈度对应的官方灾害类别命名：
+ *   红 ≥7°  → 强破坏性地震（灾害性）
+ *   橙 5-6° → 破坏性地震（灾害性）
+ *   黄 3-4° → 强有感
+ *   蓝 <3°  → 有感地震（告知性）
+ */
+fun WarningLevel.category(): String = when (this) {
+    WarningLevel.RED -> "强破坏性地震"
+    WarningLevel.ORANGE -> "破坏性地震"
+    WarningLevel.YELLOW -> "强有感地震"
+    WarningLevel.BLUE -> "有感地震"
     WarningLevel.NONE -> ""
 }
 
@@ -319,7 +372,8 @@ fun parsePodrisEew(raw: String): Eew? {
             latitude = lat, longitude = lon,
             magnitude = mag,
             depthKm = root.optInt("depth", 0).toDouble(),
-            maxIntensity = root.optDouble("intensity", 0.0).let { if (it > 0) "%.1f".format(it) else "" }
+            maxIntensity = root.optDouble("intensity", 0.0).let { if (it > 0) "%.1f".format(it) else "" },
+            originMs = parseOriginTimeMs(root.optString("time", ""))
         )
     } catch (_: Exception) { null }
 }
@@ -352,7 +406,9 @@ fun parseIclEew(obj: JSONObject): Eew? {
             latitude = lat, longitude = lon,
             magnitude = mag,
             depthKm = obj.optDouble("depth", 0.0),
-            maxIntensity = obj.optDouble("epiIntensity", 0.0).let { if (it > 0) "%.1f".format(it) else "" }
+            maxIntensity = obj.optDouble("epiIntensity", 0.0).let { if (it > 0) "%.1f".format(it) else "" },
+            originMs = if (startAt > 0L) startAt else parseOriginTimeMs(originTime)
         )
     } catch (_: Exception) { null }
 }
+

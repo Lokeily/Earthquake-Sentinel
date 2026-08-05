@@ -34,7 +34,13 @@ data class SourceUiState(
     val name: String,
     val connected: Boolean,
     val lastDataMs: Long,
-    val failCount: Long
+    val failCount: Long,
+    /**
+     * 数据源侧错误码（如 "503"）：non-null 表示握手/升级被数据源服务器以 5xx 拒绝
+     * （区别于移动网络抖动/断网）。主页据此显示「源异常·503」，让用户知道是服务端问题
+     * 而非本机 App 故障。默认 null（构造处与 .copy() 均兼容）。
+     */
+    val serverError: String? = null
 )
 
 /**
@@ -63,6 +69,11 @@ class EewService : Service() {
         const val ACTION_ALERT_DISMISSED = "com.dianguard.app.ALERT_DISMISSED"
         const val ACTION_HISTORY_CHANGED = "com.dianguard.app.HISTORY_CHANGED"
 
+        /** 某数据源 WebSocket 连接成功时广播（当前用于 BeeCLD 启用后告知用户“已成功启用”） */
+        const val ACTION_SOURCE_CONNECTED = "com.dianguard.app.SOURCE_CONNECTED"
+        /** ACTION_SOURCE_CONNECTED 的附带的源 id（如 "beecld"） */
+        const val EXTRA_SOURCE_ID = "source_id"
+
         const val EXTRA_STATUS = "status"
         const val EXTRA_EVENT_ID = "event_id"
         const val EXTRA_MAG = "mag"
@@ -72,6 +83,10 @@ class EewService : Service() {
         const val EXTRA_INTENSITY = "intensity"
         const val EXTRA_DEPTH = "depth"
         const val EXTRA_REPORT_NUM = "report_num"
+        // 数据来源展示名（如"中国地震预警网""多源融合(2源)""模拟预警"），用于告警页底部"来自X"
+        const val EXTRA_SOURCE = "source_name"
+        // 发震时刻 epoch 毫秒，用于告警页底部时间显示；0 表示未知
+        const val EXTRA_TIME = "origin_time_ms"
 
         internal const val TAG = "EewService"
 
@@ -93,6 +108,12 @@ class EewService : Service() {
         /** 服务启动时间戳，供 EewAlertManager 做启动冷静期判断 */
         @Volatile var serviceStartedMs: Long = 0L
 
+        /**
+         * 当前运行中的服务实例（同一进程内引用，供设置页等调用运行时配置，如 applyBeeCLDConfig）。
+         * 服务未运行时为 null，调用方务必判空；onCreate 赋值、onDestroy 清空。
+         */
+        @Volatile var instance: EewService? = null
+
         private val stateLock = Any()
 
         /** 原子更新状态（线程安全） */
@@ -101,7 +122,13 @@ class EewService : Service() {
         }
 
         // 向后兼容的快捷访问器（避免大范围修改现有代码）
-        val connectedSourceCount: Int get() = state.connectedSourceCount
+        /**
+         * 已连接源数量：统一由 sourceStatuses（含 WebSocket 源与 ICL HTTP 轮询源）推导，
+         * 使 ICL 的连通性也计入“在线源数”，避免 Wolfx 断开但 ICL 存活时被误判为全断。
+         */
+        val connectedSourceCount: Int get() = state.sourceStatuses.count { it.connected }
+        /** 是否存在任一在线数据源（WebSocket 或 ICL HTTP 轮询），用于头条文案与新鲜度判定 */
+        val anySourceConnected: Boolean get() = state.sourceStatuses.any { it.connected }
         val wakeLockHeld: Boolean get() = state.wakeLockHeld
         val lastStatusText: String get() = state.lastStatusText
         val headlineState: String get() = state.headlineState
@@ -174,16 +201,28 @@ class EewService : Service() {
     override fun onCreate() {
         super.onCreate()
         serviceStartedMs = System.currentTimeMillis()
+        instance = this
         AppConfig.init(this)
         connMgr = EewConnectionManager(this)
         alertMgr = EewAlertManager(this)
-        iclPoller = IclPoller { eew, src -> alertMgr.handleRawIcl(eew, src) }
+        iclPoller = IclPoller(
+            onEew = { eew, src -> alertMgr.handleRawIcl(eew, src) },
+            // ICL 连通性上报：写入 sourceStatuses，使主页出现独立 ICL 状态行，
+            // 并让 connectedSourceCount / anySourceConnected 计入 ICL，
+            // 防止 Wolfx 断开时误报“监听中断”与误激活备用源。
+            onStatus = { connected, lastDataMs, failCount ->
+                patchSourceState("icl") { copy(connected = connected, lastDataMs = lastDataMs, failCount = failCount) }
+                connMgr.refreshHeadline()
+            }
+        )
         createNotificationChannels()
         acquireWakeLock()
         startWakeLockRefresh()
         startDedupCleanup()
         startFreshnessMonitor()
         connMgr.startNetworkMonitor()
+        // R6（P1 证书固定逃生舱）：当某数据源证书固定连续失败被降级时，强制提醒用户（预警仍可用，但防伪减弱）
+        HttpClient.onDegrade = { host -> postPinDegradedNotify(host) }
         LocalBroadcastManager.getInstance(this)
             .registerReceiver(alertDismissedReceiver, IntentFilter(ACTION_ALERT_DISMISSED))
     }
@@ -208,17 +247,38 @@ class EewService : Service() {
         } else {
             Log.i(TAG, "服务已在运行，跳过重复连接 (${connMgr.connections.size} 个源)")
         }
+        // R7 修复：旧版本升级后 serviceEnabled 可能为 true 但从未记录 monitorStartMs（=0），
+        // 此处补记“当前时刻”为基准，避免升级后立刻把历史旧震当作“开启后”的地震推送。
+        // 正常新开启流程中 monitorStartMs 已由 AppConfig.serviceEnabled setter 写入，这里不会覆盖。
+        if (AppConfig.serviceEnabled && AppConfig.monitorStartMs == 0L) {
+            AppConfig.monitorStartMs = System.currentTimeMillis()
+        }
         startLocationRefresh()
         iclPoller.start()
         return START_STICKY
     }
 
+    /**
+     * 运行时应用 BeeCLD 用户源配置：启用且 token 有效 → 动态起连；否则断开。
+     * 供设置页保存后调用。服务启动 / 网络恢复时 connectAll 已按当前配置自动处理 beecld，
+     * 本方法主要用于用户在设置页运行时切换开关或更换 token。
+     */
+    fun applyBeeCLDConfig() {
+        if (AppConfig.beecldEnabled && AppConfig.beecldWsUrl().isNotBlank()) {
+            connMgr.connectSourceDynamically("beecld")
+        } else {
+            connMgr.disconnectSource("beecld")
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         connMgr.stopNetworkMonitor()
         connMgr.destroy()
         alertMgr.destroy()
         iclPoller.stop()
+        HttpClient.onDegrade = null
         stopLocationRefresh()
         stopWakeLockRefresh()
         stopDedupCleanup()
@@ -249,7 +309,11 @@ class EewService : Service() {
         stopDedupCleanup()
         dedupCleanupRunnable = object : Runnable {
             override fun run() {
-                alertMgr.cleanupOldQuakes(System.currentTimeMillis())
+                val now = System.currentTimeMillis()
+                alertMgr.cleanupOldQuakes(now)
+                // R6：周期性清理 EewFusion 中过期的 pending 事件与按 quakeKey 累积的版本/坐标表，
+                // 防止长期运行下内存无限增长。
+                EewFusion.cleanupStale(now)
                 mainHandler.postDelayed(this, DEDUP_CLEANUP_INTERVAL_MS)
             }
         }
@@ -280,7 +344,8 @@ class EewService : Service() {
     private fun checkDataFreshness() {
         // 以“是否有源处于连接状态”判定新鲜度，而非“是否收到过地震报文”——
         // 地震报文天然稀疏，平静期不应误报“网络异常”。
-        val connected = EewService.connectedSourceCount > 0
+        // 注：统一用 anySourceConnected（含 ICL HTTP 轮询源），避免 Wolfx 断开但 ICL 存活时误报“网络异常”。
+        val connected = EewService.anySourceConnected
         if (connected) everConnected = true
         if (!connected && everConnected && !alertMgr.dataStaleNotified) {
             alertMgr.dataStaleNotified = true
@@ -392,6 +457,28 @@ class EewService : Service() {
         try {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.notify(NOTIFY_ID, buildForegroundNotification(text))
+        } catch (_: Exception) { }
+    }
+
+    /**
+     * R6（P1 证书固定逃生舱）：当某数据源证书固定连续失败被降级为系统信任时，
+     * 弹出一次性强提醒。预警仍可用，但传输层防伪中间人保护暂时减弱，建议更新版本恢复。
+     */
+    private fun postPinDegradedNotify(host: String) {
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val text = "数据源 $host 的证书固定校验连续失败，已临时改用系统信任链。\n" +
+                    "地震预警仍可正常接收，但传输层防伪中间人保护暂时减弱，建议更新到最新版本以恢复。"
+            val n = NotificationCompat.Builder(this, CHANNEL_DISTANT_ID)
+                .setContentTitle("地震哨兵 · 证书安全降级提醒")
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setSmallIcon(R.drawable.ic_stat_warning)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .build()
+            nm.notify(9000, n) // 固定 ID：重复降级只覆盖同一条，不刷屏
         } catch (_: Exception) { }
     }
 

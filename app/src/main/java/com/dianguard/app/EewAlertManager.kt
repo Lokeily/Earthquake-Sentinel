@@ -44,6 +44,29 @@ class EewAlertManager(val service: EewService) {
     /** 启动后至少已成功触发过一次告警时置 true；用于冷静期判断 */
     private var triggeredAtLeastOnce = false
 
+    /**
+     * 开启监听基准时刻的容差（毫秒）：允许发震时刻比基准早最多 1 分钟仍推送，
+     * 避免“用户刚点开监听、真实当前震的 EEW 因网络延迟晚到几秒”被误判为旧震而漏报。
+     * 历史旧震（数分钟/数小时前）仍会被可靠过滤。
+     */
+    private val MONITOR_GRACE_MS = 60_000L
+
+    /**
+     * 是否应抑制地震相关通知（远震小震提醒 / 备用源速报 / 全屏强震告警）。
+     * 满足任一即抑制：
+     *  ① 未开启预警监听（serviceEnabled=false）→ 绝不推送任何地震通知；
+     *  ② 已开启，但地震发震时刻（originMs）早于「开启监听基准时刻 − 容差」
+     *     → 视为开启前已发生的旧震/历史震，不再推送，避免用户被旧消息吓到。
+     * 仅发震时刻可解析（originMs>0）且基准已记录时才启用时间过滤；
+     * 发震时刻未知时退化为「仅按 serviceEnabled 判定」，不误杀真实当前震。
+     */
+    private fun suppressQuakeNotification(eew: Eew): Boolean {
+        if (!AppConfig.serviceEnabled) return true
+        val startMs = AppConfig.monitorStartMs
+        if (startMs > 0 && eew.originMs > 0 && eew.originMs < startMs - MONITOR_GRACE_MS) return true
+        return false
+    }
+
     // ===== 多源融合临时状态 =====
     private val fusionLock = Any()
     /** 首报元数据缓存：key=quakeKey，融合完成时用于决策 */
@@ -83,10 +106,9 @@ class EewAlertManager(val service: EewService) {
     // ===================== 核心消息分发 =====================
 
     fun handleRaw(raw: String, sourceId: String) {
-        // 解析回退链：CENC 标准格式 → 第三方聚合（FAN/BeeCLD 信封）→ Project Podris 格式。
-        // 修复 R5-1：parsePodrisEew 此前未接入调用链，Podris 报文即使送达也无法解析；
-        // 现加入回退链，只要任一源（含未来接入的 Podris wsUrl）推送该格式即可被识别，
-        // 对既有 Wolfx/ICL 报文无任何影响（各解析器按各自字段特征返回 null 或 Eew）。
+        // 解析回退链：CENC 标准格式（含 CENC/四川/重庆/中国台湾 Wolfx 镜像）→ 第三方聚合
+        //   （FAN/BeeCLD 信封）→ Project Podris。各解析器按各自字段特征返回 null 或 Eew，
+        // 互不干扰；对既有 Wolfx/ICL 报文无任何影响。
         val parsed = parseEew(raw) ?: parseExternalEew(raw) ?: parsePodrisEew(raw) ?: return
         handleRawEew(parsed, sourceId)
     }
@@ -116,7 +138,8 @@ class EewAlertManager(val service: EewService) {
                     key = quakeKey, timeMs = now, originTime = eew.originTime,
                     place = eew.hypoCenter, magnitude = eew.magnitude, depthKm = eew.depthKm,
                     intensity = "-", distanceKm = 0.0, etaSec = 0.0,
-                    sourceName = EEW_SOURCES.firstOrNull { it.id == sourceId }?.name ?: sourceId,
+                    sourceName = EEW_SOURCES.firstOrNull { it.id == sourceId }?.name
+                        ?: SOURCE_DISPLAY_NAMES[sourceId] ?: sourceId,
                     reportNum = eew.reportNum, triggered = false, backup = false
                 )
             )
@@ -181,7 +204,8 @@ class EewAlertManager(val service: EewService) {
                 key = quakeKey, timeMs = now, originTime = eew.originTime,
                 place = eew.hypoCenter, magnitude = eew.magnitude, depthKm = eew.depthKm,
                 intensity = intensityStr, distanceKm = distKm, etaSec = etaSec,
-                sourceName = EEW_SOURCES.firstOrNull { it.id == sourceId }?.name ?: sourceId,
+                sourceName = EEW_SOURCES.firstOrNull { it.id == sourceId }?.name
+                    ?: SOURCE_DISPLAY_NAMES[sourceId] ?: sourceId,
                 reportNum = eew.reportNum, triggered = alertOk, backup = false
             )
         )
@@ -241,7 +265,7 @@ class EewAlertManager(val service: EewService) {
                 latitude = result.fusedLat,
                 longitude = result.fusedLon
             )
-            triggerAlert(fusedEew, meta.distKm, meta.etaSec, fusedIntensityStr)
+            triggerAlert(fusedEew, meta.distKm, meta.etaSec, fusedIntensityStr, "多源融合(${result.sourceCount}源)")
         } else if (!fusedAlertOk && !seenBefore) {
             postDistantNotify(meta.eew, meta.distKm, meta.etaSec, fusedIntensityStr)
         }
@@ -264,7 +288,13 @@ class EewAlertManager(val service: EewService) {
 
     // ===================== 告警触发 =====================
 
-    private fun triggerAlert(eew: Eew, distKm: Double, etaSec: Double, intensityStr: String) {
+    private fun triggerAlert(eew: Eew, distKm: Double, etaSec: Double, intensityStr: String, sourceName: String = "") {
+        // 未开启监听 / 开启前旧震 → 不拉起全屏告警（仍会写入历史，见 handleRawEew）
+        if (suppressQuakeNotification(eew)) {
+            Log.i(EewService.TAG, "[告警抑制] 跳过全屏告警: ${eew.hypoCenter} M${eew.magnitude} " +
+                "serviceEnabled=${AppConfig.serviceEnabled} originMs=${eew.originMs} startMs=${AppConfig.monitorStartMs}")
+            return
+        }
         val intent = Intent(service, AlertActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EewService.EXTRA_EVENT_ID, eew.eventId)
@@ -275,6 +305,8 @@ class EewAlertManager(val service: EewService) {
             putExtra(EewService.EXTRA_INTENSITY, intensityStr)
             putExtra(EewService.EXTRA_DEPTH, eew.depthKm)
             putExtra(EewService.EXTRA_REPORT_NUM, eew.reportNum)
+            putExtra(EewService.EXTRA_SOURCE, sourceName)
+            putExtra(EewService.EXTRA_TIME, eew.originMs)
         }
         service.mainHandler.post {
             try {
@@ -324,6 +356,12 @@ class EewAlertManager(val service: EewService) {
     }
 
     private fun postDistantNotify(eew: Eew, distKm: Double, etaSec: Double, intensityStr: String) {
+        // 未开启监听 / 开启前旧震 → 不推送远震小震提醒
+        if (suppressQuakeNotification(eew)) {
+            Log.i(EewService.TAG, "[告警抑制] 跳过远震小震提醒: ${eew.hypoCenter} M${eew.magnitude} " +
+                "serviceEnabled=${AppConfig.serviceEnabled} originMs=${eew.originMs} startMs=${AppConfig.monitorStartMs}")
+            return
+        }
         val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val text = "${eew.hypoCenter} ${"%.1f级地震".format(eew.magnitude)} 预估烈度$intensityStr，" +
                 "距参考点约 ${distKm.toInt()}km，S波约 ${etaSec.toInt()}s 后到达"
@@ -406,6 +444,12 @@ class EewAlertManager(val service: EewService) {
     }
 
     private fun postBackupNotify(eew: Eew, distKm: Double, intensityStr: String, sourceName: String) {
+        // 未开启监听 / 开启前旧震 → 不推送备用源速报
+        if (suppressQuakeNotification(eew)) {
+            Log.i(EewService.TAG, "[告警抑制] 跳过备用源速报: ${eew.hypoCenter} M${eew.magnitude} ($sourceName) " +
+                "serviceEnabled=${AppConfig.serviceEnabled} originMs=${eew.originMs} startMs=${AppConfig.monitorStartMs}")
+            return
+        }
         val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val text = "${eew.hypoCenter} M${eew.magnitude} 预估烈度$intensityStr，距参考点约 ${distKm.toInt()}km。\n" +
                 "（主预警链路中断期间，由「$sourceName」兜底探测，属震后速报，非实时预警）"

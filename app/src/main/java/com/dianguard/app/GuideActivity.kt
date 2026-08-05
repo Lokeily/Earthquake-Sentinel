@@ -8,7 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
-import android.widget.TextView
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
@@ -23,7 +23,7 @@ class GuideActivity : AppCompatActivity() {
         setContentView(R.layout.activity_guide)
 
         // 顶部栏返回按钮（主题为 NoActionBar，无系统返回键）
-        findViewById<TextView>(R.id.btn_back).setOnClickListener { finish() }
+        findViewById<View>(R.id.btn_back).setOnClickListener { finish() }
 
         findViewById<Button>(R.id.btn_app_details).setOnClickListener {
             // 打开本应用详情页（可在此设置电池/权限/锁定）

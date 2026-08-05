@@ -1,7 +1,7 @@
 package com.dianguard.app
 
 import android.os.Bundle
-import android.widget.TextView
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 
 /**
@@ -13,6 +13,6 @@ class DisclaimerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_disclaimer)
-        findViewById<TextView>(R.id.btn_back).setOnClickListener { finish() }
+        findViewById<View>(R.id.btn_back).setOnClickListener { finish() }
     }
 }

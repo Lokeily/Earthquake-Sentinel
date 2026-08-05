@@ -25,7 +25,8 @@ import java.util.LinkedHashMap
  * - 冷静期：服务启动后前 15s 不送入（避免历史数据误触）
  */
 class IclPoller(
-    private val onEew: (eew: Eew, sourceId: String) -> Unit
+    private val onEew: (eew: Eew, sourceId: String) -> Unit,
+    private val onStatus: (connected: Boolean, lastDataMs: Long, failCount: Long) -> Unit = { _, _, _ -> }
 ) {
     companion object {
         private const val TAG = "IclPoller"
@@ -44,7 +45,12 @@ class IclPoller(
     }
     private val seen = LinkedHashMap<String, Long>()
     private val seenLock = Any()
-    private val httpClient = HttpClient.instance
+    // 每次都从 HttpClient.instance 取最新，避免证书固定降级重建后旧 client 失效（P0 修复）
+    private val httpClient get() = HttpClient.instance
+
+    /** ICL 连通性统计：成功时间 + 连续失败次数（供主页状态行 / 新鲜度判定） */
+    private var lastSuccessMs = 0L
+    private var consecutiveFails = 0L
 
     fun start() {
         if (active) return
@@ -69,20 +75,25 @@ class IclPoller(
 
     private fun pollAsync() {
         executor.execute {
+            val now = System.currentTimeMillis()
             try {
                 val req = Request.Builder().url(ICL_URL)
                     .header("Accept", "application/json").build()
                 httpClient.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) {
                         Log.w(TAG, "ICL 返回 ${resp.code}")
+                        reportFailure()
                         return@execute
                     }
-                    val body = resp.body?.string() ?: return@execute
+                    val body = resp.body?.string() ?: run { reportFailure(); return@execute }
                     val root = JSONObject(body)
                     if (root.optInt("code", -1) != 0) {
                         Log.w(TAG, "ICL API 错误: ${root.optString("message")}")
+                        reportFailure()
                         return@execute
                     }
+                    // HTTP 200 + code=0：ICL 可达（平静期无新事件也视为连通正常）
+                    reportSuccess(now)
                     val data = root.optJSONArray("data") ?: return@execute
                     for (i in 0 until data.length()) {
                         val obj = data.optJSONObject(i) ?: continue
@@ -96,8 +107,22 @@ class IclPoller(
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "ICL 轮询异常: ${e.message}")
+                reportFailure()
+                // 证书固定失败（pin 轮换 / 中间 CA 更换）时交给 HttpClient 评估是否降级为系统信任
+                HttpClient.reportFailure("mobile-new.chinaeew.cn", e)
             }
         }
+    }
+
+    private fun reportSuccess(now: Long) {
+        consecutiveFails = 0
+        lastSuccessMs = now
+        onStatus(true, now, 0L)
+    }
+
+    private fun reportFailure() {
+        consecutiveFails++
+        onStatus(false, lastSuccessMs, consecutiveFails)
     }
 
     private fun markSeen(eventId: String): Boolean {

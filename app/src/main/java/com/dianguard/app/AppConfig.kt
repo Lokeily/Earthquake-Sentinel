@@ -114,7 +114,27 @@ object AppConfig {
 
     var serviceEnabled: Boolean
         get() = synchronized(spLock) { sp.getBoolean("service_enabled", false) }
-        set(v) = synchronized(spLock) { sp.edit().putBoolean("service_enabled", v).apply() }
+        set(v) = synchronized(spLock) {
+            // 切换预警监听开关时，同步记录/清除“开启监听基准时刻”：
+            // - 置 true：写入当前时间，作为「只推送此后发生的地震」的基准（见 EewAlertManager.suppressQuakeNotification）；
+            // - 置 false：清零，下次重新开启时重新计时。
+            sp.edit()
+                .putBoolean("service_enabled", v)
+                .putLong("monitor_start_ms", if (v) System.currentTimeMillis() else 0L)
+                .apply()
+        }
+
+    /**
+     * 开启预警监听的基准时刻（epoch 毫秒）。
+     * - 由 serviceEnabled 置 true 时自动写入当前时间；
+     * - 远震/小震/强震通知派发时，凡「发震时刻 < 此基准」的地震一律不再推送，
+     *   避免用户开启监听后收到“很久之前的旧震”而被吓到（用户明确要求）。
+     * - 默认 0：表示尚未记录基准（旧版本升级遗留或从未开启），
+     *   此时由 EewService.onStartCommand 在 serviceEnabled=true 时补记当前时间。
+     */
+    var monitorStartMs: Long
+        get() = synchronized(spLock) { sp.getLong("monitor_start_ms", 0L) }
+        set(v) = synchronized(spLock) { sp.edit().putLong("monitor_start_ms", v).apply() }
 
     /** 是否首次启动（用于安装后弹出“必需设置 / 自启动”引导） */
     var firstLaunch: Boolean
@@ -130,6 +150,15 @@ object AppConfig {
     var dismissedUpdateVersion: String
         get() = synchronized(spLock) { sp.getString("dismissed_update_version", "") ?: "" }
         set(v) = synchronized(spLock) { sp.edit().putString("dismissed_update_version", v).apply() }
+
+    /**
+     * 主页「数据来源」面板是否收起（v1.3.1+）。
+     * - false（默认）：展开，显示每一路源的状态行；
+     * - true：收起，只显示标题；下次进入 App 仍保持收起。
+     */
+    var sourcesCollapsed: Boolean
+        get() = synchronized(spLock) { sp.getBoolean("sources_collapsed", false) }
+        set(v) = synchronized(spLock) { sp.edit().putBoolean("sources_collapsed", v).apply() }
 
     /**
      * 深色模式档位（v1.0.17）：0=跟随系统 / 1=浅色 / 2=深色（OLED 纯黑）。
@@ -148,6 +177,24 @@ object AppConfig {
         set(v) = synchronized(spLock) { sp.edit().putString("quake_history_v1", v).apply() }
 
     /**
+     * 融合引擎校准画像持久化（FusionCalibration）：JSON 数组字符串。
+     * 仅在「在线学习」开启时才会被写入；默认关闭状态下引擎只做纯查表修正，此值恒为 "[]"。
+     */
+    var fusionCalibJson: String
+        get() = synchronized(spLock) { sp.getString("fusion_calib_v1", "[]") ?: "[]" }
+        set(v) = synchronized(spLock) { sp.edit().putString("fusion_calib_v1", v).apply() }
+
+    /**
+     * 融合引擎在线自学习开关（默认 false）。
+     * 关闭时 FusionCalibration 仅使用内置预训练画像做纯查表修正，不采集样本、不回填真值、
+     * 不写 SharedPreferences——对小用户量场景收益趋近于零，故默认关闭以省去开销。
+     * 引擎的进化改为在开发机本地用训练管道完成，随版本更新内置到 App。
+     */
+    var onlineLearningEnabled: Boolean
+        get() = synchronized(spLock) { sp.getBoolean("online_learning_enabled", false) }
+        set(v) = synchronized(spLock) { sp.edit().putBoolean("online_learning_enabled", v).apply() }
+
+    /**
      * 免责声明与用户协议是否已同意（v1.1.0）。
      * - 首次开启预警监听时若为 false，会弹窗强制要求阅读并同意才能启用；
      * - 在"设置"页可随时点开《免责声明与用户协议》查看完整内容；
@@ -156,6 +203,35 @@ object AppConfig {
     var disclaimerAccepted: Boolean
         get() = synchronized(spLock) { sp.getBoolean("disclaimer_accepted", false) }
         set(v) = synchronized(spLock) { sp.edit().putBoolean("disclaimer_accepted", v).apply() }
+
+    /**
+     * BeeCLD 用户自注册源（v1.3.x 新增，可选）：
+     *  - 数据节点 = wss://api.2v8.cn/ws/cea，鉴权 = URL 参数 ?token=<用户 API Key>；
+     *  - API Key 由用户自行前往 https://auth.beecld.com/ 注册获取，App 不托管账号、不收集密钥；
+     *  - 仅在用户显式启用且已填写有效 token 时，由 EewConnectionManager 动态起连，
+     *    关闭或清空 token 后立即断开；App 不内置任何默认密钥，也不在编译期写入 token。
+     *  - 解析复用现有 parseExternalEew（BeeCLD 信封 {"Data":{...}} 已支持），无需新建解析器。
+     */
+    var beecldToken: String
+        get() = synchronized(spLock) { sp.getString("beecld_token", "") ?: "" }
+        set(v) = synchronized(spLock) { sp.edit().putString("beecld_token", v.trim()).apply() }
+
+    /** BeeCLD 是否启用（用户手动开关；保存 token 时置 true，断开时置 false） */
+    var beecldEnabled: Boolean
+        get() = synchronized(spLock) { sp.getBoolean("beecld_enabled", false) }
+        set(v) = synchronized(spLock) { sp.edit().putBoolean("beecld_enabled", v).apply() }
+
+    /**
+     * 根据当前启用状态与 token 计算 BeeCLD 的 WebSocket 地址。
+     * 返回空串表示“不应连接”（未启用或 token 为空）；否则为
+     * wss://api.2v8.cn/ws/cea?token=<用户 API Key>。
+     */
+    fun beecldWsUrl(): String {
+        if (!beecldEnabled) return ""
+        val t = beecldToken
+        if (t.isBlank()) return ""
+        return "wss://api.2v8.cn/ws/cea?token=${t.trim()}"
+    }
 
     /** 把 S 波到达时间估算为倒计时秒数：**空间震源距** / 波速（含深度修正） */
     fun estimateSWaveEtaSeconds(distanceKm: Double, depthKm: Double = 0.0): Double {
@@ -169,30 +245,76 @@ object AppConfig {
 /**
  * 单个地震预警数据源定义。
  *
- * @param id    内部标识（用于连接管理 / 去重日志）
- * @param name  展示名（官方机构）
- * @param wsUrl WebSocket 实时推送地址
+ * @param id      内部标识（用于连接管理 / 去重日志）
+ * @param name    展示名（官方机构）
+ * @param wsUrl   WebSocket 实时推送地址；留空表示非 WebSocket 源（如 ICL 由 IclPoller HTTP 轮询维护）
+ * @param headers 连接时附加的 HTTP 头（如 EMSC SockJS 需 Origin）；默认空
  */
 data class EewSource(
     val id: String,
     val name: String,
-    val wsUrl: String
+    val wsUrl: String,
+    val headers: Map<String, String> = emptyMap()
 )
 
 /**
- * 中国大陆国家级「秒级预警」WebSocket 数据源列表。
+ * 源展示名兜底表：任何 handleRaw / 历史记录传入的 sourceId 都能解析为可读名，
+ * 避免回退显示原始 id（如 "icl" / "sc"）。EEW_SOURCES 中的源会优先按列表命中，
+ * 此表兜住未列入连接列表的派生源（all_eew 聚合流、备用 HTTP 源等）。
+ */
+val SOURCE_DISPLAY_NAMES: Map<String, String> = mapOf(
+    "cenc" to "中国地震台网 (CENC)",
+    "sc" to "四川省地震局 (SC)",
+    "cq" to "重庆市地震局 (CQ)",
+    "cwa" to "中国台湾地震测报中心 (CWA)",
+    "icl" to "中国地震预警网 (ICL)",
+    "beecld" to "BeeCLD 地震预警 (用户源)"
+)
+
+/**
+ * 「监控型」源：仅维持连接心跳与连通性指示，不参与本地告警判定、不发送远震通知、不写入历史。
+ * 当前所有源均为中国大陆或对中国大陆有用（含中国台湾），均参与本地告警判定，故本集合为空。
+ * 若日后重新接入纯海外独立源（如作为 Wolfx+ICL 同时失效时的兜底心跳），在此登记其 id 即可。
+ */
+val MONITOR_ONLY_SOURCES: Set<String> = emptySet()
+
+/**
+ * 实时「秒级预警」数据源列表（v1.4，仅保留中国大陆及对中国大陆有用的源）。
  *
- * 当前实际拓扑（v1.3.0，R5 审查确认）：
- *  - WebSocket 实时源：Wolfx CENC（wss://ws-api.wolfx.jp/cenc_eew）——秒级推送；
+ * 当前实际拓扑（已剔除全部海外/对中国大陆无用源：JMA / EMSC / p2pquake / USGS）：
+ *  - 国内独立机构源（Wolfx 镜像，但分别来自中国地震台网 / 四川省局 / 重庆市局三家机构，
+ *    互为 corroboration，西南地区地震可三方互证），均为 WebSocket 实时：
+ *      · CENC  wss://ws-api.wolfx.jp/cenc_eew
+ *      · 四川局 wss://ws-api.wolfx.jp/sc_eew   （已实测可连接）
+ *      · 重庆局 wss://ws-api.wolfx.jp/cq_eew   （已实测可连接）
+ *  - 中国台湾地震测报中心 (CWA)：同为 Wolfx 镜像实时源，覆盖台湾海峡地震——此类震源
+ *    直接影响中国东南沿海（闽浙），且 CENC 对离岸震源常有延迟或欠报，故作为「邻近区域
+ *    实时源」接入并参与本地告警判定（带全字段：经纬度 / 深度 / 震级，app 本地算倒计时+烈度）。
+ *    已实测可连接 + 心跳。
  *  - ICL 减灾所官方：经 IclPoller 以 HTTP 3s 轮询独立接入（域名与 Wolfx 完全独立），
- *    不在本列表中，融合引擎会同时消费两类报文（Wolfx WS + ICL HTTP + 备用源）；
- *  - Project Podris（免鉴权聚合源）：parsePodrisEew 解析器已就绪并接入 handleRaw 回退链，
- *    待取得其 WebSocket 地址后在此追加一条 EewSource 即可启用（零代码改动）。
+ *    不在 WS 列表中（wsUrl 留空），融合引擎同样消费其报文；
  *
- * 说明：FAN Studio（需 API 密钥）与 BeeCLD·2v8（令牌已改由用户自行填写）均不再内置，
- * 故本列表不再包含二者条目。
+ * 说明：FAN Studio（需 API 密钥，已申请被拒）与全部海外源（JMA / EMSC / p2pquake / USGS）均不再内置；
+ * BeeCLD·2v8 则改为「用户自注册可选源」接入——App 不内置密钥，由用户在设置页自行前往
+ * https://auth.beecld.com/ 注册获取 API Key 后填写启用（见下方 beecld 条目）。
+ *
+ * 注：ICL 以「空白 wsUrl」登记，目的有二：
+ *   1) 让主页数据源状态区出现独立的 ICL 行；
+ *   2) 让告警历史里的 sourceName 正确解析为「中国地震预警网 (ICL)」，不再回退显示原始 "icl"。
+ * 其连接由 IclPoller 以 HTTP 3s 轮询独立维护，EewConnectionManager.connectAll() 会跳过空白 wsUrl，
+ * 连接状态由 IclPoller 经 EewService.patchSourceState("icl", ...) 上报。
  */
 val EEW_SOURCES: List<EewSource> = listOf(
-    EewSource("cenc", "中国地震台网 (CENC)", "wss://ws-api.wolfx.jp/cenc_eew")
-    // ICL（减灾所官方）通过 IclPoller HTTP 轮询独立工作，不在 WebSocket 列表中
+    EewSource("cenc", "中国地震台网 (CENC)", "wss://ws-api.wolfx.jp/cenc_eew"),
+    // 四川 / 重庆省级地震局（Wolfx 镜像，独立机构源，已实测可连接）——与 CENC 互为国内 corroboration
+    EewSource("sc", "四川省地震局 (SC)", "wss://ws-api.wolfx.jp/sc_eew"),
+    EewSource("cq", "重庆市地震局 (CQ)", "wss://ws-api.wolfx.jp/cq_eew"),
+    // 中国台湾地震测报中心 (CWA)：邻近区域实时源，影响中国东南沿海，参与本地告警判定
+    EewSource("cwa", "中国台湾地震测报中心 (CWA)", "wss://ws-api.wolfx.jp/cwa_eew"),
+    // ICL（减灾所官方）HTTP 轮询源；wsUrl 留空 = 非 WebSocket 源，由 IclPoller 维护连通性
+    EewSource("icl", "中国地震预警网 (ICL)", ""),
+    // BeeCLD·2v8（用户自注册可选源）：wsUrl 留空 = 动态源；仅在用户于设置页填好 token 并启用后，
+    // 由 EewConnectionManager 按 AppConfig.beecldWsUrl() 动态起连（wss://api.2v8.cn/ws/cea?token=...）。
+    // 数据节点 api.2v8.cn 未在 HttpClient 证书固定表中，连接时走系统信任链，证书固定逃生舱不对其计数。
+    EewSource("beecld", "BeeCLD 地震预警 (用户源)", "")
 )
