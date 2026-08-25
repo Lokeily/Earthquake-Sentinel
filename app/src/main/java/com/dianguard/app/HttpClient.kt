@@ -25,8 +25,7 @@ import javax.net.ssl.SSLPeerUnverifiedException
  *  - 每个域名固定 2 个 SPKI 公钥（leaf 证书 + 中间 CA）：任一匹配即通过，
  *    既防伪冒，又容忍 leaf 证书轮换（中间 CA 长期稳定）——避免证书更新导致预警链路中断；
  *  - 覆盖全部预警/历史数据链路域名：wolfx.jp（实时 EEW + 历史主源）、
- *    chinaeew.cn（ICL 减灾所官方 HTTP 轮询）、usgs.gov / seismicportal.eu（备用源）、
- *    bigdatacloud.net（逆地理编码）。
+ *    chinaeew.cn（ICL 减灾所官方 HTTP 轮询）、usgs.gov / seismicportal.eu（备用源）。
  *
  * ⚠️ 证书固定“降级逃生舱”（R6 修复，P1 健壮性）：
  *  - 痛点：若官方悄悄轮换了 leaf 证书或中间 CA（SPKI 改变），固定校验会**永远失败**，
@@ -68,10 +67,6 @@ object HttpClient {
         "www.seismicportal.eu" to listOf(
             "sha256/OmeVEgu8rx8NwWJVLHeJjEix5e/LIVM93VbBuAMUA9E=",  // leaf (seismicportal.eu)
             "sha256/nWN7PSep5XDQdge5zK24CnCRXHr3KvzhKEGxsdqCX9E="   // Let's Encrypt YR2
-        ),
-        "api.bigdatacloud.net" to listOf(
-            "sha256/LAsG76f/x3AAVi7gWwU7oa8z/UfOBDrFBaOvxAcRQo0=",  // leaf (*.bigdatacloud.net)
-            "sha256/42b9RNOnyb3tlC0KYtNPA3KKpJluskyU6aG+CipUmaM="   // Thawte TLS RSA CA G1
         )
     )
 
