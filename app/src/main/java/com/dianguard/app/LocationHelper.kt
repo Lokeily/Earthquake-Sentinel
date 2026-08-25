@@ -10,11 +10,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import org.json.JSONObject
-import java.net.URL
 import java.util.Locale
 import java.util.concurrent.Executors
-import javax.net.ssl.HttpsURLConnection
 
 /**
  * 定位与逆地理编码工具。
@@ -167,8 +164,10 @@ object LocationHelper {
      *
      * 降级链路（在中国大陆大多数设备没有 GMS、系统 Geocoder 必然返回 null 的情况下仍能给出地名）：
      * 1) 系统 Geocoder（含 GMS 的机型）。
-     * 2) 免密钥的网络逆地理编码 BigDataCloud（中文）。
-     * 3) 内置省级边界表（纯离线兜底，至少给出省份）。
+     * 2) 内置省级边界表（纯离线兜底，至少给出省份）。
+     *
+     * 合规说明：不再调用任何境外网络逆地理编码服务，避免位置坐标出境；
+     * 在无系统地理编码能力时仅回退到离线省级地名。
      *
      * 这样「参考位置」与「模拟震中」才能显示「四川省宜宾市」而不是经纬度。
      */
@@ -196,39 +195,11 @@ object LocationHelper {
         } catch (e: Exception) {
             null
         }
-        // 繁体 → 简体（BigDataCloud 对港澳台地名返回繁体，需统一为简体中文）
-        val candidate = viaSystem ?: geocodeNetwork(lat, lon) ?: GeoUtils.provinceOf(lat, lon)
+        // 繁体 → 简体（统一为简体中文）
+        val candidate = viaSystem ?: GeoUtils.provinceOf(lat, lon)
         return candidate?.let { ZhConvert.toSimplified(it) }
     }
 
-    /** 免密钥反向地理编码：BigDataCloud（localityLanguage=zh） */
-    private fun geocodeNetwork(lat: Double, lon: Double): String? {
-        return try {
-            val url = URL(
-                "https://api.bigdatacloud.net/data/reverse-geocode-client" +
-                    "?latitude=$lat&longitude=$lon&localityLanguage=zh"
-            )
-            val conn = url.openConnection() as HttpsURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 8000
-            conn.readTimeout = 8000
-            conn.setRequestProperty("Accept", "application/json")
-            if (conn.responseCode != 200) { conn.disconnect(); return null }
-            val text = conn.inputStream.bufferedReader().readText()
-            conn.disconnect()
-            val obj = JSONObject(text)
-            val prov = obj.optString("principalSubdivision", "")
-            val city = obj.optString("city", "")
-            val locality = obj.optString("locality", "")
-            val sb = StringBuilder()
-            if (prov.isNotBlank()) sb.append(prov)
-            if (city.isNotBlank() && city != prov) sb.append(city)
-            if (locality.isNotBlank() && locality != city) sb.append(locality)
-            if (sb.isNotEmpty()) sb.toString() else null
-        } catch (_: Exception) {
-            null
-        }
-    }
 
     /** 公开：离线省级兜底，供 UI 在详细逆编码失败时仍显示省/直辖市（绝不直接显示经纬度） */
     fun provinceFallback(lat: Double, lon: Double): String? = GeoUtils.provinceOf(lat, lon)
