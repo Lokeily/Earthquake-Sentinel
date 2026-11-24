@@ -182,6 +182,23 @@
 
   revealTargets.forEach(el => io.observe(el));
 
+  /* ---------- 7.5 网格卡片交错入场（stagger）----------
+     同一网格容器内的卡片按序延迟显现，视觉更有节奏；
+     显现完成后移除行内延迟，避免影响 hover 等后续过渡。 */
+  document.querySelectorAll(
+    '.source-grid, .feature-grid, .faq-grid, .how-grid, .install-steps'
+  ).forEach(grid => {
+    Array.from(grid.children).forEach((child, i) => {
+      if (i === 0) return;
+      child.style.transitionDelay = Math.min(i * 70, 420) + 'ms';
+      child.addEventListener('transitionend', function onEnd(ev) {
+        if (ev.propertyName !== 'opacity') return;
+        child.style.transitionDelay = '';
+        child.removeEventListener('transitionend', onEnd);
+      });
+    });
+  });
+
   /* ---------- 8. 子页锚点导航高亮 ---------- */
   const subnav = document.getElementById('subnav');
   if (subnav) {

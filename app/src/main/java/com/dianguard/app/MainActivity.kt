@@ -4,18 +4,18 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import java.io.File
-import java.io.PrintWriter
-import java.io.StringWriter
 
 /**
- * 地震哨兵主页容器（v1.0.17 起）：
+ * 地震哨兵主页容器（v1.0.17 起，v1.4.2 正式软件化）：
  *   - 上方 Fragment 内容区 + 下方自绘底部导航栏（3 个 Tab：主页 / 预警历史 / 设置）；
  *   - 三个 Fragment 通过 show/hide 切换（保留实例状态，不每次重建）；
- *   - 打开 App 即做崩溃自记录，并自动检查 GitHub 最新 Release。
+ *   - 崩溃自记录已上移到 Application（CrashSaver），此处仅负责：
+ *       · 启动时若有未读崩溃记录 → 弹窗提示并引导查看/清除；
+ *       · 打开 App 自动检查 GitHub 最新 Release。
  */
 class MainActivity : AppCompatActivity() {
 
@@ -29,8 +29,6 @@ class MainActivity : AppCompatActivity() {
         var currentTabIndex: Int = TAB_HOME
     }
 
-    private val defaultUncaughtHandler = Thread.getDefaultUncaughtExceptionHandler()
-
     private lateinit var tabHome: android.view.View
     private lateinit var tabHistory: android.view.View
     private lateinit var tabSettings: android.view.View
@@ -43,10 +41,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        installCrashSaver()
-        setContentView(R.layout.activity_main)
-
         AppConfig.init(this)
+        maybeNotifyCrashRecovery()
+
+        // 首次进入：必须先阅读并同意《用户服务协议》与《免责声明协议》，
+        // 未同意（或协议已重大更新需重新确认）前不进入主页、不申请任何权限。
+        if (!AppConfig.disclaimerAccepted ||
+            AppConfig.disclaimerAcceptedVersion < AppConfig.DISCLAIMER_VERSION
+        ) {
+            startActivity(
+                Intent(this, DisclaimerActivity::class.java)
+                    .putExtra(DisclaimerActivity.EXTRA_FORCE, true)
+            )
+            finish()
+            return
+        }
+
+        setContentView(R.layout.activity_main)
         EewVoice.init(application)
 
         tabHome = findViewById(R.id.tab_home)
@@ -59,12 +70,24 @@ class MainActivity : AppCompatActivity() {
         tabSettingsIcon = findViewById(R.id.tab_settings_icon)
         tabSettingsText = findViewById(R.id.tab_settings_text)
 
-        tabHome.setOnClickListener { selectTab(TAB_HOME) }
-        tabHistory.setOnClickListener { selectTab(TAB_HISTORY) }
-        tabSettings.setOnClickListener { selectTab(TAB_SETTINGS) }
+        // 统一交互反馈：Tab 切换伴随轻微触觉脉冲（v1.4.8），与涟漪、淡入淡出同节奏
+        val haptic = { v: android.view.View ->
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+            selectTab(when (v.id) {
+                R.id.tab_home -> TAB_HOME
+                R.id.tab_history -> TAB_HISTORY
+                else -> TAB_SETTINGS
+            })
+        }
+        tabHome.setOnClickListener(haptic)
+        tabHistory.setOnClickListener(haptic)
+        tabSettings.setOnClickListener(haptic)
 
         // 首次进入默认选中主页；重建后保留上次所在 Tab
         selectTab(currentTabIndex)
+
+        // 返回键处理（OnBackPressedDispatcher，替代已废弃的 onBackPressed）
+        setupBackHandler()
 
         // 打开 App 即自动检测 GitHub 最新 Release，有新版本则提示更新
         maybeCheckUpdate()
@@ -73,9 +96,12 @@ class MainActivity : AppCompatActivity() {
     /** 切换到指定 Tab：显示对应 Fragment、隐藏其余，并刷新选中态着色 */
     fun selectTab(index: Int) {
         currentTabIndex = index
-        // 若正位于「更多设置」二级页，切 Tab 前先退出该页，避免叠加
+        // 若正位于「更多设置」二级页，切 Tab 前先退出该页，避免叠加；
+        // popBackStackImmediate 在状态保存后调用会抛 IllegalStateException，安全吞掉
         val fmPre = supportFragmentManager
-        if (fmPre.backStackEntryCount > 0) fmPre.popBackStackImmediate()
+        if (fmPre.backStackEntryCount > 0) {
+            runCatching { fmPre.popBackStackImmediate() }
+        }
         val (home, history, settings) = ensureFragments()
         val fm = supportFragmentManager
         val tx = fm.beginTransaction()
@@ -109,15 +135,23 @@ class MainActivity : AppCompatActivity() {
         tx.setCustomAnimations(R.anim.slide_in_right, 0, 0, R.anim.slide_out_right)
         tx.addToBackStack("more_settings")
         tx.commit()
+        // 立即执行事务：否则快速双击「更多设置」时 findFragmentByTag 仍返回 null，
+        // 会叠加两个二级页（需按两次返回才能退出）
+        fm.executePendingTransactions()
     }
 
-    /** 返回键：优先退出「更多设置」二级页，否则走默认（退出 Activity） */
-    override fun onBackPressed() {
-        if (supportFragmentManager.backStackEntryCount > 0) {
-            supportFragmentManager.popBackStack()
-        } else {
-            super.onBackPressed()
-        }
+    /** 返回键：优先退出「更多设置」二级页，否则走默认（退出 Activity）。v1.4.3 迁移到 OnBackPressedDispatcher。 */
+    private fun setupBackHandler() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (supportFragmentManager.backStackEntryCount > 0) {
+                    supportFragmentManager.popBackStack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
     }
 
     /** 确保三个 Fragment 已 add 到容器（重建时复用系统保留的实例） */
@@ -178,8 +212,10 @@ class MainActivity : AppCompatActivity() {
     /**
      * 自动检查更新：节流（默认 30 分钟内只查一次，规避 GitHub API 匿名限流），
      * 且同一版本用户选择“稍后”后不再重复弹窗。
+     * debug 测试版禁用：线上 Release 与 debug 包名/签名均不同，引导安装只会失败。
      */
     private fun maybeCheckUpdate() {
+        if (BuildConfig.IS_DEBUG) return
         val now = System.currentTimeMillis()
         val interval = 30 * 60 * 1000L
         if (now - AppConfig.lastUpdateCheckMs < interval) return
@@ -191,26 +227,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 崩溃自记录：把未捕获异常堆栈写入外部存储，便于无 adb 时排查“一开就闪退” */
-    private fun installCrashSaver() {
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            try {
-                val sw = StringWriter()
-                throwable.printStackTrace(PrintWriter(sw))
-                // 崩溃日志可能包含用户精确坐标，写入前先脱敏，避免外部存储泄露位置隐私。
-                val cleaned = redactCoordinates("time=${System.currentTimeMillis()}\n${sw}")
-                val dir = getExternalFilesDir(null) ?: filesDir
-                File(dir, "crash.txt").writeText(cleaned)
-            } catch (_: Exception) { }
-            defaultUncaughtHandler?.uncaughtException(thread, throwable)
-        }
-    }
-
-    /** 将崩溃日志中的精确坐标类字段脱敏，防止位置隐私随 crash.txt 泄露 */
-    private fun redactCoordinates(text: String): String {
-        return text
-            .replace(Regex("(?i)(home_?lat|latitude|lat)[\\s=:]+[-\\d.]+"), "\$1=[REDACTED]")
-            .replace(Regex("(?i)(home_?lon|longitude|lon)[\\s=:]+[-\\d.]+"), "\$1=[REDACTED]")
-            .replace(Regex("(?i)(location_?name|address)[\\s=:]+\\S+"), "\$1=[REDACTED]")
+    /** 崩溃自记录已上移 CrashSaver（Application 级），此处仅在启动时检查是否有未读崩溃记录 */
+    private fun maybeNotifyCrashRecovery() {
+        try {
+            if (!CrashSaver.hasPendingCrash(application)) return
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("上次运行异常退出")
+                .setMessage("检测到上次运行 App 发生异常，为避免影响预警接收已自动记录。\n\n" +
+                    "可点击「查看日志」查看崩溃详情（仅保存在本机），或直接「忽略」。")
+                .setPositiveButton("查看日志") { _, _ ->
+                    val log = CrashSaver.readCrashLog(application)
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("崩溃日志（本机）")
+                        .setMessage(log.ifBlank { "（空）" })
+                        .setPositiveButton(android.R.string.ok, null)
+                        .setNeutralButton("清除记录") { _, _ -> CrashSaver.clearCrash(application) }
+                        .show()
+                }
+                .setNegativeButton("忽略") { _, _ -> CrashSaver.clearCrash(application) }
+                .setCancelable(false)
+                .show()
+        } catch (_: Exception) { }
     }
 }

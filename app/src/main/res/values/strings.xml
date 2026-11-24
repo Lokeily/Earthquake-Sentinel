@@ -1,23 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">地震哨兵</string>
-    <string name="main_title">地震哨兵</string>
     <string name="main_subtitle">守护您的地震安全！</string>
     <string name="tab_home">主页</string>
     <string name="tab_history">预警历史</string>
     <string name="tab_settings">设置</string>
     <string name="home_btn_enable">开启预警监听</string>
     <string name="home_btn_disable">预警监听中（点击关闭）</string>
-    <string name="home_btn_settings">设置（阈值 / 远震提醒）</string>
     <string name="home_hint">提示：首次打开会申请通知 / 定位 / 悬浮窗三项权限，并自动获取您的位置。老手机请务必到「设置」页点“关闭电池优化”并参考“保活设置引导”，否则系统可能杀掉后台监听。</string>
     <string name="settings_title">设置</string>
     <string name="settings_location_title">参考位置（用于计算震中距离）</string>
-    <string name="settings_location_hint">点击下方按钮获取设备定位；位置由手机 GPS 自动判定，不可手动修改</string>
     <string name="location_display_empty">尚未获取位置，请点击上方“获取当前位置”</string>
-    <string name="settings_threshold_title">预警阈值（仅烈度）</string>
-    <string name="settings_threshold_hint">仅达到所选烈度才会全屏告警：3°明显有感（推荐）/ 2°轻微有感（更灵敏，但会频繁打扰）/ 4°强烈有感。默认 3°可避免告警疲劳。</string>
+    <string name="settings_threshold_title">预警阈值（烈度）</string>
+    <string name="settings_threshold_intensity_day_title">白天烈度阈值（6:00–22:00）</string>
+    <string name="settings_threshold_intensity_night_title">夜间烈度阈值（22:00–6:00）</string>
+    <string name="settings_threshold_note">仅以用户所在地烈度（由您与震中的距离计算）作为触发条件，不启用震级。烈度阈值参考成都高新减灾研究所（ICL）推荐：白天 2 度、夜间 3 度。当地预估烈度达到所选值时，全屏倒计时警报才会开启。</string>
     <string name="settings_theme_title">外观</string>
-    <string name="settings_theme_hint">深色档位使用纯黑背景：OLED / AMOLED 屏上黑色像素直接熄灭，既省电又能减少长期常亮的烧屏风险，适合把旧手机插电常驻当哨兵的用法。</string>
     <string name="beecld_title">BeeCLD 地震预警（可选数据源）</string>
     <string name="beecld_desc">独立的地震预警节点（覆盖中国大陆）。需你自行前往其官网注册并获取 API 密钥后填到此处，即可作为额外数据源增强预警覆盖。本应用不提供账号，也不收集你的密钥。</string>
     <string name="beecld_register_btn">去注册并获取 API</string>
@@ -38,15 +36,15 @@
     <string name="settings_keepalive_title">后台保活（老手机必看）</string>
     <string name="guide_enable_text">已开启预警监听，但要在老手机上真正生效，还需完成以下设置：\n\n1. 已授予通知 / 定位 / 悬浮窗权限（如未授予请到系统设置开启）；\n2. 在「设置」页点“获取当前位置”写入参考点；\n3. 点「关闭电池优化」，并把本应用加入自启动 / 后台白名单（见「保活设置引导」）；\n4. 完成后预警才能在锁屏、后台甚至 App 未运行时强制弹出。</string>
     <string name="btn_loc">获取当前位置</string>
-    <string name="sw_distant">远震小震提醒（通知栏）</string>
+    <!-- 烈度阈值（昼夜分设，纯烈度触发，不启用震级条件） -->
     <string-array name="intensity_threshold_entries">
-        <item>3° 明显有感（推荐）</item>
-        <item>2° 轻微有感（更灵敏）</item>
+        <item>2° 轻微有感（白天推荐）</item>
+        <item>3° 明显有感（夜间推荐）</item>
         <item>4° 强烈有感</item>
     </string-array>
     <integer-array name="intensity_threshold_values">
-        <item>3</item>
         <item>2</item>
+        <item>3</item>
         <item>4</item>
     </integer-array>
     <string-array name="theme_mode_entries">
@@ -78,7 +76,6 @@
     <string name="freshness_hours">数据更新于：%1$d 小时前</string>
     <string name="freshness_days">数据更新于：%1$d 天前</string>
     <string name="history_title">预警历史记录</string>
-    <string name="history_hint">保留最近 7 天、最多 100 条。达到烈度阈值的会标注「已告警」；未达阈值的小震 / 远震也会记录，便于回溯这段时间到底检测到了什么。</string>
     <string name="history_empty">暂无记录\n\n开启预警监听后，检测到的每一次地震都会记录在这里，即使当时没有达到告警阈值。</string>
     <string name="history_clear">清空记录</string>
     <string name="history_clear_confirm">确定清空全部历史记录吗？此操作不可恢复。</string>
@@ -86,25 +83,10 @@
     <string name="history_count">共 %1$d 条记录</string>
     <string name="history_badge_alerted">已告警</string>
     <string name="history_badge_backup">备用源速报</string>
-    <string name="history_badge_logged">已记录</string>
-    <string name="history_fetching">正在从中国地震台网同步近期地震记录…</string>
-    <string name="history_fetch_done">已从中国地震台网同步 %1$d 条近期地震记录</string>
-    <string name="history_fetch_none">近期无可记录的新地震</string>
     <string name="test_alarm_title">测试报警</string>
-    <string name="test_alarm_hint">点击对应等级，试听该等级预警语音 + 倒计时结束后的警报提示音（音频取自真实大陆预警录音）。点“停止播放”可随时静音。</string>
-    <string name="btn_full_sim">完整模拟预警（全屏倒计时 + 警报）</string>
-    <string name="btn_stop_play">停止播放</string>
-    <string name="stopped">已停止</string>
-    <string name="level_blue_name">蓝色预警</string>
-    <string name="level_blue_phrase">有感地震，请勿惊慌</string>
     <string name="level_yellow_name">黄色预警</string>
-    <string name="level_yellow_phrase">强有感地震，请注意</string>
-    <string name="level_orange_name">橙色预警</string>
-    <string name="level_orange_phrase">破坏地震，请有效防范</string>
-    <string name="level_red_name">红色预警</string>
-    <string name="level_red_phrase">强破坏地震，请紧急避险</string>
-    <string name="alert_title">地震预警</string>
-    <string name="alert_dismiss">我已安全 / 停止警报</string>
+    <string name="alert_dismiss">停止警报</string>
+    <string name="alert_banner_prefix">地震预警</string>
     <string name="update_title">发现新版本</string>
     <string name="update_message">已有新版本 v%1$s 可用，建议尽快更新以获得最新功能与修复。</string>
     <string name="update_btn_go">前往更新</string>
@@ -117,8 +99,48 @@
     <string name="btn_check_update">检查更新</string>
     <string name="update_none">当前已是最新版本</string>
     <string name="about_version">版本 v%1$s</string>
-    <string name="btn_disclaimer">免责声明与用户协议</string>
-    <string name="disclaimer_title">免责声明与用户协议</string>
+    <string name="btn_disclaimer">用户协议与免责声明</string>
+    <string name="disclaimer_title">用户协议与免责声明</string>
+
+    <!-- 关于区（正式软件化 v1.4.2）：软件信息 / 开源许可 / 数据来源 / 崩溃日志 -->
+    <string name="about_license_title">开源许可</string>
+    <string name="about_license_summary">Apache-2.0 + 闭源专有（双许可）</string>
+    <string name="about_license_dialog_title">开源许可声明</string>
+    <string name="about_license_dialog_text">本软件采用双许可模式：\n\n· 开源部分（UI、数据源解析、烈度衰减模型、告警链路、历史记录、证书固定、构建配置等）遵循 Apache License 2.0，可自由使用、修改与分发（保留版权声明）。\n\n· 闭源部分（多源融合决策引擎及其校准模块）为闭源专有，不随开源仓库分发，其完整实现仅由作者维护。商业使用、二次开发集成需另行联系作者授权。\n\n数据来源说明：地震预警信息由「中国地震台网中心」等官方机构发布，经 wolfx.jp 公共聚合转发；本软件作为第三方信息聚合与展示工具，不生产数据、不修改内容。</string>
+    <string name="about_crash_log_title">查看崩溃日志</string>
+    <string name="about_crash_log_empty">暂无崩溃日志记录</string>
+    <string name="about_crash_log_hint">仅保存在本机，不上传</string>
+    <string name="about_crash_clear">清除记录</string>
+
+    <!-- 用户服务协议（v1.3.3 新增，与《免责声明协议》分离；两者均为进入软件前必须阅读并同意） -->
+    <string name="service_agreement_title">用户服务协议</string>
+    <string name="service_agreement_intro">欢迎使用「地震哨兵（Dianguard）」</string>
+    <string name="service_agreement_intro_text">在使用本软件前，请您仔细阅读并充分理解本《用户服务协议》的全部内容。您点击「阅读完毕并同意」即表示您已阅读、理解并同意接受本协议的全部条款约束。若您不同意本协议任何条款，请勿使用本软件。</string>
+    <string name="service_agreement_s1_title">一、服务说明</string>
+    <string name="service_agreement_s1_text">本软件为公益公开的 GitHub 开源项目，定位为「官方地震预警信息的接收与转发展示终端」，不生产、不修改、不伪造任何地震预警数据，仅接收并原样转发展示官方已发布的地震预警信息（信息源为「中国地震预警网」/中国地震台网中心）。本软件免费开放，不收取任何费用，不盈利。本项目声明遵循中国大陆法律法规。</string>
+    <string name="service_agreement_s2_title">二、用户权利与义务</string>
+    <string name="service_agreement_s2_text">1. 您有权自愿选择是否使用本软件，并可随时停止使用、卸载本软件。\n\n2. 您应合法、善意地使用本软件，不得利用本软件从事任何违反法律法规、危害国家权益或社会公共利益的活动。\n\n3. 您应妥善保管自己的设备，自行承担因设备丢失、损坏或误操作导致的后果。</string>
+    <string name="service_agreement_s3_title">三、使用规则与禁止行为</string>
+    <string name="service_agreement_s3_text">1. 您不得对本软件进行反向工程、篡改、破解，或将其用于任何商业用途。\n\n2. 您不得利用本软件编造、传播虚假地震预警信息。\n\n3. 您不得以任何形式冒充官方机构或地震工作主管部门发布信息。</string>
+    <string name="service_agreement_s4_title">四、个人信息保护</string>
+    <string name="service_agreement_s4_text">本软件仅获取为提供服务所必需的位置权限，位置坐标仅用于本机计算震中距离；除地震预警数据订阅与逆地理编码所必需的坐标参数外，不收集、不上报您的其他个人信息。详细说明请见《免责声明协议》。</string>
+    <string name="service_agreement_s5_title">五、协议变更与终止</string>
+    <string name="service_agreement_s5_text">我们可能根据法律法规或产品调整更新本协议，更新后将通过版本更新或明显提示告知。若您不同意更新后的协议，应停止使用本软件。\n\n若本项目的存在或行为侵犯国家权益或社会公共利益，将立即自行下架或删除处理。</string>
+    <string name="service_agreement_s6_title">六、法律适用与管辖</string>
+    <string name="service_agreement_s6_text">本协议受中华人民共和国法律管辖并依其解释。因本协议产生的争议，双方应友好协商解决；协商不成的，提交至开发者所在地有管辖权的人民法院解决。</string>
+
+    <!-- 协议阅读流程 UI（v1.3.3 两步向导：先《用户服务协议》→ 同意后《免责声明协议》） -->
+    <string name="agreement_step_1_hint">第一步：请阅读《用户服务协议》，滑动至底部后可同意</string>
+    <string name="agreement_step_2_hint">第二步：请阅读《免责声明协议》，滑动至底部后可同意</string>
+    <string name="agreement_read_hint">请滑动至协议底部，完成阅读后可同意</string>
+    <string name="agreement_countdown">建议阅读时间 %1$d 秒</string>
+    <string name="agreement_need_scroll_bottom">请滑动至协议底部后同意</string>
+    <string name="agreement_go_next">阅读完毕并同意，查看下一份协议</string>
+    <string name="agreement_read_done">阅读完毕并同意</string>
+    <string name="agreement_reading">请继续向下阅读…</string>
+    <string name="agreement_disagree_exit">不同意并退出</string>
+    <string name="disclaimer_step_title">免责声明协议</string>
+
     <string name="disclaimer_intro">重要提示</string>
     <string name="disclaimer_intro_text">您可自愿接收地震预警信息，请理解，预警信息只作为避险参考，没收到警报但感受到地震时仍需要避险。请根据预警时间和避险到就近安全地点的时间选择合理的避险措施。您基于地震预警服务做出任何行为导致的风险和后果均由您自行承担。\n\n地震预警信息由中国地震台网中心提供（信息源展示为"中国地震预警网"），地震预警信息受现有技术条件、监测网络覆盖范围及地质环境复杂性限制，可能存在误差或延迟，我们对地震预警信息的准确性、有效性、及时性不作承诺和保证，亦不保证地震预警服务能满足您的所有需求。\n\n接收地震预警信息需要您保持手机网络正常运行，您理解并同意，地震预警信息的传输取决于若干原因，包括但不限于网络的畅通度、手机是否在信号区内、App 未能正常运行等无法确保的情况，包括因第三方如通讯线路故障、技术问题、网络、终端设备故障、系统不稳定性及其他各种不可抗力原因，本服务无法保证您能实时收到该预警信息，由此遭受的一切损失，我们不承担责任。\n\n启用地震预警服务将自动开启定位开关。</string>
     <string name="disclaimer_section_service">地震预警服务与免责声明</string>
@@ -128,7 +150,7 @@
 
 本项目声明遵循中国大陆法律法规，仅供个人学习与研究使用，不构成官方地震预警发布渠道。本项目为公益公开的 GitHub 开源项目，免费开放、不收取任何费用、不盈利；若本项目的存在或行为侵犯国家权益或社会公共利益，将立即自行下架或删除处理。</string>
     <string name="disclaimer_section_2_title">二、用户个人信息保护</string>
-    <string name="disclaimer_section_2_text">在为您提供服务的过程中，我们需要获取您的位置权限，以定位您与震中的距离、计算 S 波到达参考点的倒计时。位置坐标用于本机计算您与震中的距离；为生成可读地址（如\"云南省昆明市\"），系统会将坐标发送给系统地理编码服务或第三方公开接口（可能含境外服务）以转换为文字地址，请知悉并授权。\n\n基于信息收集的目的，或遵守相关适用的法律法规保留您的个人信息。您的个人信息在完成收集目的后，我们将停止保留数据，或进行脱敏、去标识化处理。\n\n本软件无埋点、无统计 SDK、无广告、无推送 SDK；除地震预警数据订阅与逆地理编码所必需的坐标参数外，不收集、不上报您的其他个人信息。</string>
+    <string name="disclaimer_section_2_text">在为您提供服务的过程中，我们需要获取您的位置权限，以定位您与震中的距离、计算 S 波到达参考点的倒计时。位置坐标仅保存在您本机；为生成可读地址（如\"云南省昆明市\"），系统会将坐标经系统地理编码服务转换为文字地址，请知悉并授权。\n\n基于信息收集的目的，或遵守相关适用的法律法规保留您的个人信息。您的个人信息在完成收集目的后，我们将停止保留数据，或进行脱敏、去标识化处理。\n\n本软件不收集、可视化、统计您的任何个人信息；除地震预警数据订阅与逆地理编码所必需的坐标参数外，不收集、不上报您的其他个人信息。</string>
     <string name="disclaimer_section_3_title">三、用户注意事项</string>
     <string name="disclaimer_section_3_text">1. 地震预警是全自动的秒级响应，为实时接收预警，需要软件能够保持联网状态。您理解并同意，为了向您提供有效的服务，本软件使用过程中可能产生数据流量的费用，并需要您自行承担相关费用。\n\n2. 您理解并同意，开通此功能，地震预警信息不受免打扰时间和预置音量的控制，免打扰时间或静音状态下，您仍会接收到预警信息及提醒音。\n\n3. 您了解地震预警的原理、功能，理解地震预警存在预警盲区。\n\n4. 您理解并同意，您收到地震预警时，需采取合理的避险措施。由于技术是不断更新发展的，地震预警服务可能存在一定的误差。即使您没收到警报但感受到地震时仍需要避险。\n\n5. 请根据预警时间和避险到就近安全地点的时间选择合理的避险措施。</string>
     <string name="disclaimer_section_4_title">四、免责说明</string>
@@ -140,12 +162,39 @@
     <string name="disclaimer_accept">我已阅读并同意</string>
     <string name="disclaimer_decline">不同意</string>
     <string name="disclaimer_first_launch_title">开启地震预警服务前</string>
-    <string name="disclaimer_first_launch_msg">请先阅读并同意《免责声明与用户协议》。启用预警服务后，您将实时接收地震预警；预警仅作为避险参考，未收到警报但感受到地震时仍需避险。\n\n您基于本软件做出任何行为导致的风险和后果均由您自行承担。</string>
+    <string name="disclaimer_first_launch_msg">请先阅读并同意《用户服务协议》与《免责声明协议》。启用预警服务后，您将实时接收地震预警；预警仅作为避险参考，未收到警报但感受到地震时仍需避险。\n\n您基于本软件做出任何行为导致的风险和后果均由您自行承担。</string>
     <string name="more_settings_title">更多设置</string>
     <string name="section_basic">基础设置</string>
     <string name="section_source">数据源</string>
-    <string name="section_tools">工具</string>
+    <string name="section_tools">更多</string>
     <string name="more_section_common">通用</string>
     <string name="more_section_about">关于</string>
     <string name="back">返回</string>
+
+    <!-- 预警回放（测试版，v1.4.0） -->
+    <string name="replay_title">预警回放</string>
+    <string name="replay_desc">回放列表来自近一年内的历史预警（CENC / USGS / EMSC 同步）。点击任一条目，可完整重现当次预警：全屏弹窗、分级语音、逐秒倒计时与警报声，与真实预警交互一致。</string>
+    <string name="replay_empty">暂无回放记录\n\n点击右上角 ↻ 可从中国地震台网/USGS/EMSC 同步近一年的历史预警。</string>
+    <string name="replay_clear_settings">清空回放数据</string>
+    <string name="replay_clear_confirm">确定清空全部回放数据吗？清空后可重新从数据源同步，此操作不影响真实预警历史。</string>
+
+    <!-- 回放参数设置页（测试版） -->
+    <string name="replay_setup_title">回放参数设置</string>
+    <string name="replay_setup_start">开始回放</string>
+    <string name="replay_setup_warn">⚠ 回放会以最大音量播放预警语音、警报声并震动，请在合适的环境下进行。</string>
+    <string name="replay_section_location">模拟观测位置（决定震中距 / 倒计时 / 预估烈度）</string>
+    <string name="replay_loc_current">以当前参考位置接收</string>
+    <string name="replay_loc_simulate">模拟位于震中附近</string>
+    <string name="replay_unit_km">公里处</string>
+    <string name="replay_section_countdown">倒计时时长</string>
+    <string name="replay_cd_demo">固定 30 秒完整演示（推荐）</string>
+    <string name="replay_cd_real">按该距离下 S 波实际到达时间</string>
+    <string name="replay_preview_title">效果预览</string>
+    <string name="replay_preview_hint">确认无误后点「开始回放」，将以真实全屏弹窗 + 分级语音 + 逐秒倒计时 + 警报声完整重现。</string>
+    <string name="replay_need_location">未设置参考位置：请先到「设置」页获取当前位置，或改用「模拟位于震中附近」。</string>
+    <string name="replay_distance_invalid">模拟距离需在 1 - 3000 公里之间</string>
+    <string name="replay_no_epicenter">该记录缺少震中坐标，无法按当前位置计算距离，请改用模拟距离。</string>
+    <string name="replay_loc_current_none">尚未设置参考位置，可先到「设置」页获取当前位置</string>
+    <string name="replay_reports_official">官方逐报序列：共 %1$d 报，将按实际修正节奏回放</string>
+    <string name="replay_reports_catalog">仅保存到单一报告或目录审核结果：没有可验证的逐报序列，本次只回放这一报</string>
 </resources>

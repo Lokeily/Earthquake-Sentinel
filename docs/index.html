@@ -36,18 +36,18 @@
   <header id="top" class="hero">
     <div class="hero-content">
       <div class="hero-badge">
-        <span class="dot level-blue"></span><span data-release-badge>Android 版 v1.3.1 已发布</span>
+        <span class="dot level-blue"></span><span data-release-badge>Android 版 v1.4.3 已发布</span>
       </div>
       <h1 class="hero-title">
         把一台旧手机，<br>
         变成守护家人的<span class="gradient-text">地震预警哨兵</span>。
       </h1>
       <p class="hero-subtitle">
-        7×24 小时监听中国大陆国家级地震预警，在破坏性横波到达前弹出全屏倒计时告警。<br>
-        真实大陆预警语音 · 多源冗余 · 蓝黄橙红四级响应。
+         7×24 小时监听中国大陆官方地震预警，在破坏性横波到达前弹出全屏倒计时告警。<br>
+        官方源直连 · 先到先发 · 真实大陆预警语音 · 蓝黄橙红四级响应。
       </p>
       <div class="hero-actions">
-        <a class="btn btn-primary" data-release-download data-release-label href="https://github.com/Lokeily/Earthquake-Sentinel/releases/download/v1.3.1/Dianguard-v1.3.1-release.apk">
+        <a class="btn btn-primary" data-release-download data-release-label href="https://github.com/Lokeily/Earthquake-Sentinel/releases/download/v1.4.3/Dianguard-v1.4.3-release.apk">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-2h2v2zm0-4h-2V7h2v6zm4 4h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
           <span class="dl-label">立即下载 APK</span>
         </a>
@@ -96,27 +96,27 @@
 
   <section class="section sources">
     <div class="container">
-      <h2 class="section-title">多源实时预警，<span class="text-muted">任一主机可达即触发。</span></h2>
+      <h2 class="section-title">多源实时预警，<span class="text-muted">先到先发，任一可达即触发。</span></h2>
       <div class="source-grid">
         <div class="source-card">
-          <div class="source-name">Wolfx CENC</div>
-          <div class="source-url">ws-api.wolfx.jp/cenc_eew</div>
-          <span class="badge free">免 Key</span>
+          <div class="source-name">ICL 官方预警网</div>
+          <div class="source-url">mobile-new.chinaeew.cn · 官方直连</div>
+          <span class="badge free">官方 · 1s 增量</span>
         </div>
         <div class="source-card">
-          <div class="source-name">Wolfx SC / CQ</div>
-          <div class="source-url">四川 · 重庆地震局</div>
-          <span class="badge free">免 Key</span>
+          <div class="source-name">CENC 官方目录</div>
+          <div class="source-url">www.ceic.ac.cn · 权威历史</div>
+          <span class="badge free">官方 · 免 Key</span>
+        </div>
+        <div class="source-card">
+          <div class="source-name">Wolfx 四路转发</div>
+          <div class="source-url">CENC / 川 / 渝 / 台 · WS 推送</div>
+          <span class="badge free">故障自动 HTTP 降级</span>
         </div>
         <div class="source-card">
           <div class="source-name">BeeCLD · 2v8</div>
           <div class="source-url">api.2v8.cn/ws/cea</div>
-          <span class="badge token">免费 wat_ 令牌</span>
-        </div>
-        <div class="source-card">
-          <div class="source-name">FAN Studio</div>
-          <div class="source-url">ws.fanstudio.tech/cea</div>
-          <span class="badge key">API 密钥可选</span>
+          <span class="badge token">可选 · 用户自备令牌</span>
         </div>
       </div>
     </div>
@@ -175,8 +175,15 @@
           <div class="feature-icon blue">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M8.2 7.2 15.8 11M8.2 16.8 15.8 13"/></svg>
           </div>
-          <h3>多源去单点</h3>
-          <p>同时订阅 Wolfx、BeeCLD·2v8 等相互独立的主机，任一可达即触发；FAN Studio 配置密钥后自动启用。</p>
+          <h3>先到先发，不等待</h3>
+          <p>首报烈度达标立即全屏告警，不等第二源交叉验证；后续官方修正报实时刷新震级与倒计时。灾害中抢到的每一秒都是避险时间。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M8.2 7.2 15.8 11M8.2 16.8 15.8 13"/></svg>
+          </div>
+          <h3>官方源直连 + 三层降级</h3>
+          <p>ICL 官方预警网 1 秒增量轮询 + CENC 官方目录权威数据；Wolfx 四路转发故障时自动启用同机构 HTTP 降级，官方源始终在线。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon yellow">
@@ -196,8 +203,8 @@
           <div class="feature-icon purple">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           </div>
-          <h3>地震历史记录</h3>
-          <p>抓取中国地震台网速报目录，最近 50 条，含中文地名、震级、深度与发震时刻，按等级色展示。</p>
+          <h3>官方历史与预警回放</h3>
+          <p>同步中国地震台网官方目录（近 8 个月权威数据），完整保存实时监听期间的逐报修正序列，可回放完整预警过程。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon green">
@@ -216,12 +223,12 @@
   <section class="section reliability">
     <div class="container reliability-inner">
       <div class="reliability-text">
-        <h2 class="section-title left">为什么是「多源」而不是「一个源」</h2>
-        <p>地震预警依赖公共转发节点，单个节点可能因网络、限流或维护而短暂不可用。把全部希望押在一条链路上，意味着它挂掉的那一刻你就失去了预警。</p>
-        <p>地震哨兵的设计思路是<strong>冗余</strong>：它同时订阅多个相互独立的主机，只要任一主机可达，预警就能送达。后台还常驻一个备用实时源，作为主链路失效时的兜底。</p>
+        <h2 class="section-title left">为什么是「官方源 + 多路」而不是「单一转发」</h2>
+        <p>预警的价值在于快与可靠。第三方转发节点可能因网络、限流或维护而短暂不可用——把它当作唯一链路，意味着它挂掉的那一刻你就失去了预警。</p>
+        <p>地震哨兵的设计是<strong>官方直连优先 + 多层降级</strong>：ICL 官方预警网独立域名 1 秒增量轮询；Wolfx 四路转发故障时自动启用同机构 HTTP 通道；全部失效仍有备用探测源兜底。</p>
         <ul class="reliability-list">
-          <li><span class="dot level-green"></span>相互独立的多路主机，不共享单点故障</li>
-          <li><span class="dot level-green"></span>WebSocket 直连，震后数秒抵达</li>
+          <li><span class="dot level-green"></span>ICL 官方直连，独立于任何转发节点</li>
+          <li><span class="dot level-green"></span>WS 推送 + 同机构 HTTP 降级 + 备用探测，三层递进</li>
           <li><span class="dot level-green"></span>蓝 / 黄 / 橙 / 红 四级，按本地预估烈度（中国地震局官方标准）</li>
         </ul>
       </div>
@@ -238,15 +245,15 @@
           <line class="rg-line" x1="200" y1="46" x2="120" y2="170"></line>
           <g class="rg-node">
             <circle cx="40" cy="40" r="6"></circle>
-            <text x="40" y="64" text-anchor="middle">BeeCLD</text>
+            <text x="40" y="64" text-anchor="middle">ICL 官方</text>
           </g>
           <g class="rg-node">
             <circle cx="120" cy="40" r="6"></circle>
-            <text x="120" y="64" text-anchor="middle">Wolfx</text>
+            <text x="120" y="64" text-anchor="middle">CENC 官方</text>
           </g>
           <g class="rg-node">
             <circle cx="200" cy="40" r="6"></circle>
-            <text x="200" y="64" text-anchor="middle">FAN</text>
+            <text x="200" y="64" text-anchor="middle">Wolfx 转发</text>
           </g>
           <g class="rg-hub-svg">
             <rect x="82" y="168" width="76" height="30" rx="15"></rect>
@@ -376,12 +383,12 @@
   <section id="download" class="section download">
     <div class="container">
       <h2 class="section-title">安装前必看</h2>
-      <p class="download-version" data-release-version-line>当前最新版本 <strong>v1.3.1</strong> · 发布于 2026-08-05</p>
+      <p class="download-version" data-release-version-line>当前最新版本 <strong>v1.4.3</strong> · 发布于 2026-08-05</p>
       <div class="install-steps">
         <div class="step">
           <div class="step-num">1</div>
           <h3>下载 APK</h3>
-          <p>从 GitHub Release 下载 <code data-release-apkname>Dianguard-v1.3.1-release.apk</code>（约 <span data-release-size>16</span> MB）。</p>
+          <p>从 GitHub Release 下载 <code data-release-apkname>Dianguard-v1.4.3-release.apk</code>（约 <span data-release-size>16</span> MB）。</p>
         </div>
         <div class="step">
           <div class="step-num">2</div>
@@ -400,8 +407,8 @@
         </div>
       </div>
       <div class="download-actions">
-        <a class="btn btn-primary btn-large" data-release-download data-release-label href="https://github.com/Lokeily/Earthquake-Sentinel/releases/download/v1.3.1/Dianguard-v1.3.1-release.apk">
-          <span class="dl-label">下载 Dianguard v1.3.1</span>
+        <a class="btn btn-primary btn-large" data-release-download data-release-label href="https://github.com/Lokeily/Earthquake-Sentinel/releases/download/v1.4.3/Dianguard-v1.4.3-release.apk">
+          <span class="dl-label">下载 Dianguard v1.4.3</span>
         </a>
         <a class="btn btn-secondary" href="disclaimer.html">阅读免责声明与用户协议</a>
       </div>

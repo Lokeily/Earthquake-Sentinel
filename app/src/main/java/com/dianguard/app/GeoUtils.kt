@@ -26,8 +26,8 @@ object GeoUtils {
     private val COEFF_XINJIANG   = AttenuationCoeff(3.6113, 1.4347, -3.8477, 13.0, 0.5924, "新疆区")
     private val COEFF_QINGZANG   = AttenuationCoeff(3.3682, 1.2746, -3.3119,  9.0, 0.6636, "青藏区")
 
-    /** 汪素云等 2000 西部短轴（兜底） */
-    private val COEFF_FALLBACK = AttenuationCoeff(2.941, 1.363, -1.494, 7.0, 0.6500, "中国西部（兜底）")
+    /** 《中国地震烈度区划图(1990)》西部短轴（兜底）：I = 2.941 + 1.363M − 1.494·ln(R+7)，σ=0.61 */
+    private val COEFF_FALLBACK = AttenuationCoeff(2.941, 1.363, -1.494, 7.0, 0.6100, "中国西部（兜底）")
 
     // ==================== 局部校正（不改变衰减梯度C值） ====================
     // 盆地软土放大效应仅叠加独立的 +ΔI，不混入基岩衰减公式。
@@ -70,12 +70,12 @@ object GeoUtils {
      *
      * I = A + B*M + C*lg(R + R0) + 0.5σ + ΔI_site
      * 其中 ΔI_site 为盆地软土放大（仅四川盆地，独立于基岩衰减公式）。
-     * M < 3.0 或 R < 0 返回 -1（无效值）。
+     * M < 3.0 或 R < 0 视为无效弱震，返回 0.0。
      */
     fun estimateSiteIntensity(magnitude: Double, epicenterDistKm: Double, depthKm: Double,
                                epiLat: Double, epiLon: Double): Double {
-        if (magnitude < 3.0 || epicenterDistKm < 0) return -1.0
-        if (magnitude <= 0) return 0.0
+        // M<3 视为无效弱震返回 0.0（与 estimateFallbackIntensity 语义一致，统一为 0 值域）。
+        if (magnitude < 3.0 || epicenterDistKm < 0) return 0.0
         val d = if (depthKm > 0) depthKm else 10.0
         val hypoDist = sqrt(epicenterDistKm * epicenterDistKm + d * d)
 
@@ -98,6 +98,29 @@ object GeoUtils {
     private fun calcIntensity(magnitude: Double, hypoDist: Double, coeff: AttenuationCoeff): Double {
         return (coeff.A + coeff.B * magnitude + coeff.C * log10(hypoDist + coeff.R0))
             .coerceIn(0.0, 12.0)
+    }
+
+    /**
+     * 无坐标兜底烈度估算（v1.4.3 统一入口）。
+     * 固定使用《中国地震烈度区划图(1990)》西部短轴（ln 形式）衰减，并带 +0.5σ 安全边际，
+     * 与 [estimateSiteIntensity] 的兜底分区完全同语义——保证历史页/回放页/告警页
+     * 对同一地震（无坐标场景）显示一致的烈度，消除此前两套实现结果漂移。
+     *
+     * @return 用户所在地预估烈度，范围 [0, 12]；震级非法返回 0.0
+     */
+    fun estimateFallbackIntensity(magnitude: Double, epicenterDistKm: Double, depthKm: Double): Double {
+        // 与 estimateSiteIntensity 语义对齐：M<3 视为无效弱震，返回 0.0。
+        // 五参数入口对 M<3 返回 0.0（原 -1 哨兵已统一），此处直接返回 0.0，
+        // 避免无坐标场景（历史页/回放页/官方目录页）对弱震显示虚假烈度。
+        if (magnitude < 3.0 || epicenterDistKm < 0) return 0.0
+        val d = if (depthKm > 0) depthKm else 10.0
+        val hypoDist = sqrt(epicenterDistKm * epicenterDistKm + d * d)
+        val coeff = COEFF_FALLBACK
+        // 注意：兜底系数为《中国地震烈度区划图(1990)》ln 形式（-1.494·ln(R+7)），
+        // 必须用 ln 计算，不能复用 GB 18306-2015 的 log10 版 calcIntensity。
+        val base = (coeff.A + coeff.B * magnitude + coeff.C * ln(hypoDist + coeff.R0))
+            .coerceIn(0.0, 12.0)
+        return (base + 0.5 * coeff.sigma).coerceIn(0.0, 12.0)
     }
 
     /** 检查坐标是否在分区边界 15km 内 */
@@ -172,6 +195,22 @@ object GeoUtils {
     /** 获取当前使用的衰减公式的区域名称（供 UI 展示/调试） */
     fun attenuationRegionName(epiLat: Double, epiLon: Double): String =
         selectAttenuation(epiLat, epiLon).regionName
+
+    /**
+     * 震中相对用户所在位置的八方位描述（"东北"/"西南"等），对齐 ICL 告警页的方位提示。
+     * 采用大圆初始方位角（北=0°，顺时针），映射到 8 方位（每 45° 一档）。
+     */
+    fun bearingDirection(userLat: Double, userLon: Double,
+                         epiLat: Double, epiLon: Double): String {
+        val phi1 = Math.toRadians(userLat)
+        val phi2 = Math.toRadians(epiLat)
+        val dLon = Math.toRadians(epiLon - userLon)
+        val y = sin(dLon) * cos(phi2)
+        val x = cos(phi1) * sin(phi2) - sin(phi1) * cos(phi2) * cos(dLon)
+        val deg = (Math.toDegrees(atan2(y, x)) + 360.0) % 360.0
+        val dirs = arrayOf("正北", "东北", "正东", "东南", "正南", "西南", "正西", "西北")
+        return dirs[((deg + 22.5) / 45.0).toInt() % 8]
+    }
 
     // ==================== 省级边界表 ====================
 

@@ -2,4 +2,8 @@
 <resources>
     <!-- 浅色模式：状态栏底色浅，图标需要深色 -->
     <bool name="light_status_bar">true</bool>
+    <!-- 是否允许明文 ws:// 流量：正式版恒为 false；仅 debug 演练包通过
+         app/src/debug/res/values/bools.xml 覆盖为 true，用于连接局域网演练控制台。
+         正式用户安装的 release 包无法连入任何明文演练通道。 -->
+    <bool name="allow_cleartext_traffic">false</bool>
 </resources>

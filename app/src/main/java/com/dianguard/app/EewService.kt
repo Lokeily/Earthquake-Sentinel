@@ -6,10 +6,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.content.pm.ServiceInfo
@@ -22,7 +20,11 @@ import android.util.Log
 import androidx.core.app.ServiceCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.LinkedHashMap
 
 /**
@@ -40,7 +42,13 @@ data class SourceUiState(
      * （区别于移动网络抖动/断网）。主页据此显示「源异常·503」，让用户知道是服务端问题
      * 而非本机 App 故障。默认 null（构造处与 .copy() 均兼容）。
      */
-    val serverError: String? = null
+    val serverError: String? = null,
+    /**
+     * HTTP 降级状态文案（v1.4.3）：non-null 表示该源 WS 不可用、正在以同源 HTTP 端点
+     * 轮询兜底（如「HTTP降级·接收中」）。主页优先显示此状态（橙色）而非「源异常」，
+     * 让用户知道预警接收并未中断。默认 null（构造处与 .copy() 均兼容）。
+     */
+    val fallbackNote: String? = null
 )
 
 /**
@@ -60,21 +68,7 @@ class EewService : Service() {
         const val NOTIFY_ID = 1
         const val DISTANT_NOTIFY_ID = 1000      // 远震通知固定 ID（新地震覆盖旧通知）
 
-        // ===== 广播 Action / Extra =====
-        const val ACTION_STATUS = "com.dianguard.app.STATUS"
-        const val ACTION_REFRESH = "com.dianguard.app.REFRESH"
-        const val ACTION_FRESHNESS = "com.dianguard.app.FRESHNESS"
-        const val EXTRA_LAST_DATA_MS = "last_data_ms"
-
-        const val ACTION_ALERT_DISMISSED = "com.dianguard.app.ALERT_DISMISSED"
-        const val ACTION_HISTORY_CHANGED = "com.dianguard.app.HISTORY_CHANGED"
-
-        /** 某数据源 WebSocket 连接成功时广播（当前用于 BeeCLD 启用后告知用户“已成功启用”） */
-        const val ACTION_SOURCE_CONNECTED = "com.dianguard.app.SOURCE_CONNECTED"
-        /** ACTION_SOURCE_CONNECTED 的附带的源 id（如 "beecld"） */
-        const val EXTRA_SOURCE_ID = "source_id"
-
-        const val EXTRA_STATUS = "status"
+        // ===== Intent Extra（首报启动 AlertActivity 用） =====
         const val EXTRA_EVENT_ID = "event_id"
         const val EXTRA_MAG = "mag"
         const val EXTRA_PLACE = "place"
@@ -87,6 +81,12 @@ class EewService : Service() {
         const val EXTRA_SOURCE = "source_name"
         // 发震时刻 epoch 毫秒，用于告警页底部时间显示；0 表示未知
         const val EXTRA_TIME = "origin_time_ms"
+        // 回放标记（测试版「预警回放」页传入）：true 表示本次告警是历史回放而非真实预警。
+        // AlertActivity 据此在解除时跳过「清除服务 activeEventId / 余震提醒」，避免干扰真实预警链路。
+        const val EXTRA_REPLAY = "is_replay"
+        // 震中坐标（v1.4.3）：供告警页计算「震中位于您的XX方向」（ICL 式方位提示）
+        const val EXTRA_EPI_LAT = "epi_lat"
+        const val EXTRA_EPI_LON = "epi_lon"
 
         internal const val TAG = "EewService"
 
@@ -167,10 +167,15 @@ class EewService : Service() {
 
     @JvmField val mainHandler = Handler(Looper.getMainLooper())
 
+    // 服务级协程作用域（P1-2 迁移：用于订阅 AppEvents 事件流，随服务销毁取消）
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     // 委托对象（包内可见，供 ConnectionManager/AlertManager 互访）
     internal lateinit var connMgr: EewConnectionManager
     internal lateinit var alertMgr: EewAlertManager
     internal lateinit var iclPoller: IclPoller
+    /** Wolfx WS→HTTP 自动降级轮询器（WS 连续失败时按源启用，恢复后自动停止） */
+    internal lateinit var httpFallback: EewHttpFallbackPoller
 
     // ===== 生命周期管理 =====
 
@@ -185,14 +190,9 @@ class EewService : Service() {
     // 是否已至少成功连接过一次；用于区分“启动尚未连上”与“运行中断连”
     private var everConnected = false
 
-    private val alertDismissedReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == ACTION_ALERT_DISMISSED) {
-                alertMgr.activeEventId = null
-                alertMgr.activeQuakeKey = null
-            }
-        }
-    }
+    // P1-2 迁移：告警解除由 AlertActivity 通过 AppEvents.alertDismissed 事件流通知，
+    // 服务在 onCreate 订阅（见 subscribeAppEvents），不再使用 LocalBroadcastManager。
+    private var alertDismissedJob: kotlinx.coroutines.Job? = null
 
     // ===================== Service 生命周期 =====================
 
@@ -215,6 +215,22 @@ class EewService : Service() {
                 connMgr.refreshHeadline()
             }
         )
+        // Wolfx WS→HTTP 自动降级轮询器：WS 连续失败时按源启用同机构 HTTP 端点兜底，
+        // 成功时回报 alive=true 保持头条「守护中」并抑制备用探测源（备用源是更慢的最后层）。
+        httpFallback = EewHttpFallbackPoller(
+            onEew = { eew, src -> alertMgr.handleRawHttp(eew, src) },
+            onStatus = { srcId, note, dataMs, alive ->
+                patchSourceState(srcId) {
+                    copy(
+                        connected = alive,
+                        fallbackNote = note,
+                        lastDataMs = if (dataMs > 0) dataMs else lastDataMs
+                    )
+                }
+                connMgr.refreshHeadline()
+                updateIclPollingMode()
+            }
+        )
         createNotificationChannels()
         acquireWakeLock()
         startWakeLockRefresh()
@@ -223,8 +239,18 @@ class EewService : Service() {
         connMgr.startNetworkMonitor()
         // R6（P1 证书固定逃生舱）：当某数据源证书固定连续失败被降级时，强制提醒用户（预警仍可用，但防伪减弱）
         HttpClient.onDegrade = { host -> postPinDegradedNotify(host) }
-        LocalBroadcastManager.getInstance(this)
-            .registerReceiver(alertDismissedReceiver, IntentFilter(ACTION_ALERT_DISMISSED))
+        subscribeAppEvents()
+    }
+
+    /** P1-2 迁移：订阅应用级事件流（替代 LocalBroadcastManager 的 alertDismissed 广播） */
+    private fun subscribeAppEvents() {
+        alertDismissedJob?.cancel()
+        alertDismissedJob = serviceScope.launch {
+            AppEvents.alertDismissed.collect {
+                alertMgr.activeEventId = null
+                alertMgr.activeQuakeKey = null
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -239,6 +265,14 @@ class EewService : Service() {
             // 此时无法合规常驻，主动停止自启，避免崩溃与反复拉起。
             Log.e(TAG, "启动前台服务失败（可能缺少前台服务类型声明/权限），停止自启", e)
             AppConfig.serviceEnabled = false
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        // 防僵尸态：系统杀进程后 START_STICKY 可能拉起本服务，但用户早已关闭监听
+        // （serviceEnabled=false）。若继续运行，主页显示“守护中”而所有告警被
+        // suppressQuakeNotification 静默抑制——看似正常实则完全不工作。此时主动自停。
+        if (!AppConfig.serviceEnabled) {
+            Log.i(TAG, "serviceEnabled=false（系统重启拉起或已关闭监听），停止服务")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -271,6 +305,38 @@ class EewService : Service() {
         }
     }
 
+    /**
+     * 运行时应用「演练控制台」配置（v1.4.5，仅 debug 演练包）：
+     * 地址有效且已启用 → 动态起连 drill 源；否则立即断开。
+     * 与真实数据源完全独立：断开演练不影响 CENC / 四川 / 重庆 / CWA / ICL 任一链路。
+     */
+    fun applyDrillConfig() {
+        if (AppConfig.drillWsUrl().isNotBlank()) {
+            connMgr.connectSourceDynamically("drill")
+        } else {
+            connMgr.disconnectSource("drill")
+        }
+    }
+
+    /** 手动修改演练参考位置后立即上报后台，实现手机 ⇄ 后台即时同步 */
+    fun reportDrillStatusNow() {
+        connMgr.reportDrillStatusNow()
+    }
+
+    /**
+     * ICL 轮询自适应：任一 wolfx WS 存活 → 常态 3s；wolfx 全部降级/断开 → 2s。
+     * wolfx 全断时 ICL 是唯一实时权威源，收紧间隔把平均接收延迟从 1.5s 压到 1.0s。
+     * 由 EewConnectionManager 在 WS 状态变化时调用。
+     */
+    internal fun updateIclPollingMode() {
+        val wolfxIds = EewHttpFallbackPoller.FALLBACK_URLS.keys
+        val anyWolfxAlive = connMgr.connectedSources.any { it in wolfxIds } ||
+            wolfxIds.any { httpFallback.isReceiving(it) }
+        iclPoller.setPollInterval(
+            if (anyWolfxAlive) IclPoller.NORMAL_INTERVAL_MS else IclPoller.FAST_INTERVAL_MS
+        )
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         instance = null
@@ -278,6 +344,7 @@ class EewService : Service() {
         connMgr.destroy()
         alertMgr.destroy()
         iclPoller.stop()
+        httpFallback.stopAll()
         HttpClient.onDegrade = null
         stopLocationRefresh()
         stopWakeLockRefresh()
@@ -285,9 +352,8 @@ class EewService : Service() {
         stopFreshnessMonitor()
         updateState { ServiceState() }  // 重置全部状态
         resetSourceStates()
-        try {
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(alertDismissedReceiver)
-        } catch (_: Exception) { }
+        alertDismissedJob?.cancel()
+        serviceScope.cancel()
         releaseWakeLock()
         AppConfig.serviceEnabled = false
     }
@@ -297,10 +363,28 @@ class EewService : Service() {
     }
 
     override fun onTimeout(startId: Int) {
-        // Android 14+ 前台服务超时处理（dataSync 类服务若未及时转入前台会触发）；
-        // 常驻监听服务超时即主动停止自身，避免 ANR/崩溃（targetSdk 升至 35 前必须处理）。
-        Log.w(TAG, "前台服务超时（onTimeout），主动停止自身")
-        stopSelf()
+        // Android 15+ 对 dataSync 类型前台服务强制 6 小时限时，超时回调本方法。
+        // 地震哨兵必须 7x24 常驻——若按旧逻辑直接 stopSelf，插电常驻的老手机会
+        // 每 6 小时静默失联一次（错过深夜地震=致命）。此处改为以 specialUse 类型
+        // 续期前台服务继续监听；仅当续期失败时才放弃并自停。
+        Log.w(TAG, "dataSync 前台服务超时（6h），尝试以 specialUse 类型续期")
+        val renewed = try {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            }
+            ServiceCompat.startForeground(this, NOTIFY_ID, buildForegroundNotification("预警监听中…"), type)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "specialUse 续期失败，无法继续常驻监听", e)
+            false
+        }
+        if (!renewed) {
+            AppConfig.serviceEnabled = false
+            stopSelf()
+        }
     }
 
     // ===================== 周期任务 =====================
@@ -311,9 +395,6 @@ class EewService : Service() {
             override fun run() {
                 val now = System.currentTimeMillis()
                 alertMgr.cleanupOldQuakes(now)
-                // R6：周期性清理 EewFusion 中过期的 pending 事件与按 quakeKey 累积的版本/坐标表，
-                // 防止长期运行下内存无限增长。
-                EewFusion.cleanupStale(now)
                 mainHandler.postDelayed(this, DEDUP_CLEANUP_INTERVAL_MS)
             }
         }
@@ -359,8 +440,7 @@ class EewService : Service() {
     }
 
     private fun postFreshness() {
-        val i = Intent(ACTION_FRESHNESS).apply { putExtra(EXTRA_LAST_DATA_MS, alertMgr.lastDataReceivedMs) }
-        LocalBroadcastManager.getInstance(this).sendBroadcast(i)
+        AppEvents.postFreshness(alertMgr.lastDataReceivedMs)
     }
 
     private fun startLocationRefresh() {
@@ -412,8 +492,7 @@ class EewService : Service() {
 
     internal fun postStatus(status: String) {
         updateState { copy(lastStatusText = status) }
-        val i = Intent(ACTION_STATUS).apply { putExtra(EXTRA_STATUS, status) }
-        LocalBroadcastManager.getInstance(this).sendBroadcast(i)
+        AppEvents.postStatus(status)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIFY_ID, buildForegroundNotification(status))
     }

@@ -4,9 +4,9 @@
     <alpha
         android:fromAlpha="0.0"
         android:toAlpha="1.0"
-        android:duration="280" />
+        android:duration="@integer/anim_ms_normal" />
     <translate
         android:fromYDelta="16dp"
         android:toYDelta="0dp"
-        android:duration="280" />
+        android:duration="@integer/anim_ms_normal" />
 </set>

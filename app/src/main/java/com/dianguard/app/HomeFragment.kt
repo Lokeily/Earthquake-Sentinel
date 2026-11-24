@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,7 +21,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 /**
  * 主页（v1.0.17）：底部导航“主页”页内容。
@@ -52,32 +54,20 @@ class HomeFragment : Fragment() {
     private val sourceTickHandler = Handler(Looper.getMainLooper())
     private var sourceTickRunnable: Runnable? = null
 
+    // P1-2 迁移：事件流订阅 Job（lifecycleScope 自动随 Fragment 生命周期取消）
+    private var statusJob: kotlinx.coroutines.Job? = null
+    private var freshnessJob: kotlinx.coroutines.Job? = null
+
     /** 单路数据源行视图引用 + 所属 EewSource（用于状态文案翻译） */
     private data class SourceRow(val dot: View, val name: TextView, val status: TextView, val src: EewSource)
 
     private val REQ_RUNTIME = 2001
     private val REQ_OVERLAY = 2002
 
-    private val statusReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-            if (intent?.action == EewService.ACTION_STATUS) {
-                tvStatus.text = intent.getStringExtra(EewService.EXTRA_STATUS) ?: tvStatus.text
-            }
-        }
-    }
+    /** 用户点击「开启预警监听」后正在等待权限授权，授权完成后继续开启流程 */
+    private var pendingEnable = false
 
-    private val freshnessReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-            if (intent?.action != EewService.ACTION_FRESHNESS) return
-            val lastMs = intent.getLongExtra(EewService.EXTRA_LAST_DATA_MS, 0L)
-            updateFreshness(lastMs)
-        }
-    }
-
-    /**
-     * 数据新鲜度：仅展示“最近一次地震预警”的时间，属于正常信息而非告警。
-     * 没有地震时长时间无报文是正常现象，因此永远用中性灰色、绝不标红。
-     */
+    /** 数据新鲜度：仅展示“最近一次地震预警”的时间，属于正常信息而非告警。 */
     private fun updateFreshness(lastMs: Long) {
         val secondary = ContextCompat.getColor(requireContext(), R.color.ios_label_secondary)
         tvLastData.setTextColor(secondary)
@@ -133,12 +123,30 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        LocalBroadcastManager.getInstance(requireContext())
-            .registerReceiver(statusReceiver, android.content.IntentFilter(EewService.ACTION_STATUS))
-        LocalBroadcastManager.getInstance(requireContext())
-            .registerReceiver(freshnessReceiver, android.content.IntentFilter(EewService.ACTION_FRESHNESS))
+        // P1-2 迁移：通过 lifecycleScope 订阅 AppEvents 事件流，替代 LocalBroadcastManager
+        statusJob = lifecycleScope.launch {
+            AppEvents.status.collect { event ->
+                if (isAdded) tvStatus.text = event.text
+            }
+        }
+        freshnessJob = lifecycleScope.launch {
+            AppEvents.freshness.collect { event ->
+                if (isAdded) updateFreshness(event.lastDataMs)
+            }
+        }
 
         refreshEnableUi()
+
+        // 自愈（可靠性）：开关持久化为「已开启」但服务实例不存在——典型场景是整个进程
+        // 被系统杀死且 START_STICKY 未生效。若不处理，主页显示“监听中”而实际无人监听，
+        // 用户误以为受保护。此处自动重新拉起服务；onStartCommand 的防僵尸守卫保证
+        // 即使状态不一致也不会错误常驻。
+        if (AppConfig.serviceEnabled && EewService.instance == null) {
+            Log.i("HomeFragment", "检测到监听开关开启但服务未运行，自动恢复")
+            val intent = Intent(requireContext(), EewService::class.java)
+            ContextCompat.startForegroundService(requireContext(), intent)
+        }
+
         // 回到前台时若已授权定位但尚未获取过位置，自动抓取一次
         val fine = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
         val coarse = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -151,8 +159,10 @@ class HomeFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         stopSourceTick()
-        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(statusReceiver)
-        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(freshnessReceiver)
+        statusJob?.cancel()
+        freshnessJob?.cancel()
+        statusJob = null
+        freshnessJob = null
     }
 
     // 主页创建即触发：权限校验 + 抓取位置 + 首次启动引导（等价于原 MainActivity 的 ensureRequiredSetup）
@@ -183,7 +193,8 @@ class HomeFragment : Fragment() {
             val dot = row.findViewById<View>(R.id.src_dot)
             val name = row.findViewById<TextView>(R.id.src_name)
             val status = row.findViewById<TextView>(R.id.src_status)
-            name.text = src.name
+            // 官方直连源打「官方」标签，让用户一眼看出权威来源（转发源不标）
+            name.text = if (src.isOfficial) "${src.name} · 官方" else src.name
             sourcesList.addView(row)
             sourceRows.add(SourceRow(dot, name, status, src))
         }
@@ -286,8 +297,9 @@ class HomeFragment : Fragment() {
     /**
      * 单路数据源状态翻译为（圆点颜色, 状态文案），语气保持平静：
      *  - 用户自注册 BeeCLD 未启用 → 灰「未启用」（避免误以为连接中）
-     *  - 已连接        → 绿“已连接”
-     *  - 未连接·重试中  → 灰“连接中…”
+     *  - HTTP 降级中     → 橙「HTTP降级·…」（WS 不通但同源 HTTP 仍在接收，预警未中断）
+     *  - 已连接          → 绿“已连接”
+     *  - 未连接·重试中   → 灰“连接中…”
      *  - 未连接·多次失败 → 橙“重连中…”（不标红，单源抖动是移动网络常态）
      */
     private fun describeSource(src: EewSource, st: SourceUiState): Pair<Int, String> {
@@ -295,10 +307,27 @@ class HomeFragment : Fragment() {
         if (src.id == "beecld" && !AppConfig.beecldEnabled) {
             return color(R.color.source_gray) to getString(R.string.source_status_disabled)
         }
+        // 演练控制台（仅 debug 包存在此源）：未启用时不要显示成"连接中…"，避免误导
+        if (src.id == "drill" && !AppConfig.drillEnabled) {
+            return color(R.color.source_gray) to "未启用（演练）"
+        }
+        // HTTP 降级状态优先显示：WS 虽不通，但同机构 HTTP 端点仍在接收/轮询，
+        // 用户需要知道「预警未中断」，而不是看到吓人的「源异常」
+        st.fallbackNote?.let { note ->
+            return color(R.color.source_orange) to note
+        }
         return if (!st.connected) {
-            // 数据源侧 5xx（如 Wolfx 网关 503）→ 明确提示“源服务器异常”，区别于本机网络问题
+            // 转发源（wolfx 镜像）异常时：若官方直连源（ICL）仍可用，用安抚文案，
+            // 避免「源异常·503」让用户误以为整个预警系统都坏了；
+            // 官方源自身异常则如实标注。
             if (st.serverError != null) {
-                color(R.color.source_orange) to "源异常·${st.serverError}"
+                if (src.isOfficial) {
+                    color(R.color.source_orange) to "官方源异常·${st.serverError}"
+                } else if (isAnyOfficialAlive()) {
+                    color(R.color.source_orange) to "转发异常·官方源可用"
+                } else {
+                    color(R.color.source_orange) to "转发异常·${st.serverError}"
+                }
             } else if (st.failCount >= EewService.CONN_FAIL_WARN_THRESHOLD) {
                 color(R.color.source_orange) to "重连中…"
             } else {
@@ -309,9 +338,21 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /** 是否存在任一官方直连源在线（用于转发源异常时的安抚文案） */
+    private fun isAnyOfficialAlive(): Boolean {
+        val states = EewService.sourceStatuses
+        return EEW_SOURCES.filter { it.isOfficial }
+            .any { src -> states.any { st -> st.id == src.id && st.connected } }
+    }
+
     private fun color(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
 
     private fun toggleService() {
+        // 弹窗按钮的回调可能在 Fragment detach（如旋转重建）后才触发，
+        // 届时 requireContext()/requireActivity() 会抛 IllegalStateException；
+        // 统一提前捕获 applicationContext，回调用它完成与服务相关的操作。
+        if (!isAdded) return
+        val appCtx = requireContext().applicationContext
         if (AppConfig.serviceEnabled) {
             // 关闭预警监听：播放提示音 + 确认弹窗
             playServiceAudio(R.raw.disable_notify)
@@ -320,10 +361,10 @@ class HomeFragment : Fragment() {
                 .setMessage("关闭预警监听功能，预警系统将失效，请注意确认！")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("关闭") { _, _ ->
-                    requireContext().stopService(Intent(requireContext(), EewService::class.java))
+                    appCtx.stopService(Intent(appCtx, EewService::class.java))
                     AppConfig.serviceEnabled = false
                     EewService.updateState { copy(headlineState = "监听未开启") }
-                    refreshEnableUi()
+                    if (isAdded) refreshEnableUi()
                 }
                 .show()
         } else {
@@ -331,27 +372,68 @@ class HomeFragment : Fragment() {
                 showDisclaimerBeforeEnable()
                 return
             }
-            // R5 修复：必须已设定参考位置才能开启预警监听。
-            // 原因：烈度告警依赖「用户所在地」的烈度衰减计算，未设位置时无法判定
-            // 是否告警；旧版静默回退到云南普洱兜底坐标会造成错误距离与误报。
-            if (!AppConfig.hasLocation) {
-                AlertDialog.Builder(requireContext())
-                    .setTitle("请先设置参考位置")
-                    .setMessage("地震预警需要知道您所在的位置，才能计算地震到您这里的距离与预估烈度。\n\n" +
-                        "请到「设置」页点击“获取当前位置”，然后再开启预警监听。")
-                    .setPositiveButton("前往设置") { _, _ ->
-                        (requireActivity() as? MainActivity)?.selectTab(MainActivity.TAB_SETTINGS)
-                    }
-                    .setNegativeButton("取消", null)
-                    .show()
+            // 权限前置：点「开启」时才申请权限（通知 / 定位 / 悬浮窗），
+            // 全部就绪后再进入自检与启动；首次进入 App 不再弹出任何权限请求。
+            val missing = collectMissingRuntimePermissions()
+            if (missing.isNotEmpty()) {
+                pendingEnable = true
+                requestPermissions(missing.toTypedArray(), REQ_RUNTIME)
                 return
             }
-            // 系统自检 → 确认 → 播放提示音 → 启动服务
-            SelfCheck.showDialog(requireContext()) {
-                playServiceAudio(R.raw.enable_notify)
-                val intent = Intent(requireContext(), EewService::class.java)
-                ContextCompat.startForegroundService(requireContext(), intent)
-                AppConfig.serviceEnabled = true
+            if (!hasOverlayPermission(requireContext())) {
+                pendingEnable = true
+                requestOverlayPermission()
+                return
+            }
+            proceedEnableService()
+        }
+    }
+
+    /** 收集尚未授予的运行时权限（通知 / 定位） */
+    private fun collectMissingRuntimePermissions(): List<String> {
+        val ctx = requireContext()
+        val missing = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            missing.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarse = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED) {
+            missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            missing.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        return missing
+    }
+
+    /**
+     * 权限就绪后的开启流程：检查参考位置 → 自检 → 启动服务。
+     * R5 修复：必须已设定参考位置才能开启预警监听——烈度告警依赖「用户所在地」的
+     * 烈度衰减计算，未设位置时无法判定是否告警；旧版静默回退兜底坐标会造成错误距离与误报。
+     */
+    private fun proceedEnableService() {
+        if (!isAdded) return
+        val appCtx = requireContext().applicationContext
+        if (!AppConfig.hasLocation) {
+            AlertDialog.Builder(requireContext())
+                .setTitle("请先设置参考位置")
+                .setMessage("地震预警需要知道您所在的位置，才能计算地震到您这里的距离与预估烈度。\n\n" +
+                    "请点击“获取当前位置”，然后再开启预警监听。")
+                .setPositiveButton("获取当前位置") { _, _ -> fetchLocationOnOpen() }
+                .setNeutralButton("前往设置") { _, _ ->
+                    (activity as? MainActivity)?.selectTab(MainActivity.TAB_SETTINGS)
+                }
+                .setNegativeButton("取消", null)
+                .show()
+            return
+        }
+        // 系统自检 → 确认 → 播放提示音 → 启动服务
+        SelfCheck.showDialog(requireContext()) {
+            playServiceAudio(R.raw.enable_notify)
+            ContextCompat.startForegroundService(appCtx, Intent(appCtx, EewService::class.java))
+            AppConfig.serviceEnabled = true
+            if (isAdded) {
                 refreshEnableUi()
                 showEnableGuide()
             }
@@ -429,7 +511,8 @@ class HomeFragment : Fragment() {
             .setTitle("预警监听已开启")
             .setMessage(R.string.guide_enable_text)
             .setPositiveButton("前往设置") { _, _ ->
-                (requireActivity() as? MainActivity)?.selectTab(MainActivity.TAB_SETTINGS)
+                // activity 可空安全取用：detach 后点击不崩溃
+                (activity as? MainActivity)?.selectTab(MainActivity.TAB_SETTINGS)
             }
             .setNegativeButton("我知道了", null)
             .show()
@@ -449,38 +532,10 @@ class HomeFragment : Fragment() {
     // ===================== 打开即执行的必需设置 =====================
 
     private fun ensureRequiredSetup() {
-        val ctx = requireContext()
-        val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarse = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)
-        val locGranted = fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
-
-        val runtimeMissing = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            runtimeMissing.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (!locGranted) {
-            runtimeMissing.add(Manifest.permission.ACCESS_FINE_LOCATION)
-            runtimeMissing.add(Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
-
-        if (runtimeMissing.isNotEmpty()) {
-            requestPermissions(runtimeMissing.toTypedArray(), REQ_RUNTIME)
-        }
-
-        // 悬浮窗权限属于特殊权限，需跳转系统设置页授予
-        if (!hasOverlayPermission(ctx)) {
-            requestOverlayPermission()
-        }
-
-        if (locGranted) {
-            fetchLocationOnOpen()
-        }
-
+        // 首次进入不再自动申请任何权限——权限申请已移至「开启预警监听」时
+        // （见 toggleService → proceedEnableService）。此处仅重置首次启动标记。
         if (AppConfig.firstLaunch) {
             AppConfig.firstLaunch = false
-            showFirstLaunchGuide()
         }
     }
 
@@ -493,7 +548,7 @@ class HomeFragment : Fragment() {
         lastLocationFetchMs = now
         Toast.makeText(requireContext(), "正在自动获取当前位置…", Toast.LENGTH_LONG).show()
         LocationHelper.fetchLocation(requireContext(), object : LocationHelper.LocationResult {
-            override fun onResult(lat: Double, lon: Double, address: String?) {
+            override fun onResult(lat: Double, lon: Double, address: String?, accuracyM: Float) {
                 AppConfig.homeLat = lat
                 AppConfig.homeLon = lon
                 AppConfig.hasLocation = true
@@ -531,55 +586,6 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun showFirstLaunchGuide() {
-        AlertDialog.Builder(requireContext())
-            .setTitle("欢迎使用地震哨兵")
-            .setMessage(
-                "为确保地震预警能在锁屏、后台、甚至 App 未运行时也能强制弹出，首次使用会自动检查以下必需设置是否就绪：\n\n" +
-                    "· 通知权限（预警推送）\n" +
-                    "· 定位权限（计算震中距离）\n" +
-                    "· 悬浮窗权限（锁屏强制弹出）\n" +
-                    "· 电池优化豁免（防后台被杀）\n" +
-                    "· 预警监听开启\n\n" +
-                    "马上为你检查各项权限是否已开启。"
-            )
-            .setPositiveButton("开始检查") { _, _ -> SelfCheck.showDialog(requireContext()) }
-            .setNegativeButton("稍后", null)
-            .show()
-    }
-
-    private fun showPermissionMandatoryDialog() {
-        val ctx = requireContext()
-        val missing = StringBuilder()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) missing.append("· 通知权限\n")
-        val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarse = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)
-        if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED)
-            missing.append("· 定位权限\n")
-        if (!hasOverlayPermission(ctx)) missing.append("· 悬浮窗权限\n")
-
-        AlertDialog.Builder(ctx)
-            .setTitle("必需权限未开启")
-            .setMessage(
-                "地震哨兵需要以下权限才能正常弹出来电式地震预警，请全部开启：\n\n$missing" +
-                    "未开启将无法及时收到预警。"
-            )
-            .setPositiveButton("去设置") { _, _ ->
-                try {
-                    startActivity(
-                        Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${ctx.packageName}")
-                        )
-                    )
-                } catch (_: Exception) { }
-            }
-            .setNegativeButton("稍后", null)
-            .show()
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -592,9 +598,15 @@ class HomeFragment : Fragment() {
             if (fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED) {
                 fetchLocationOnOpen()
             }
-            val allRuntimeGranted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-            if (!allRuntimeGranted || !hasOverlayPermission(requireContext())) {
-                showPermissionMandatoryDialog()
+            if (pendingEnable) {
+                pendingEnable = false
+                // 继续开启流程：再检查悬浮窗权限
+                if (!hasOverlayPermission(requireContext())) {
+                    pendingEnable = true
+                    requestOverlayPermission()
+                } else {
+                    proceedEnableService()
+                }
             }
         }
     }
@@ -602,8 +614,15 @@ class HomeFragment : Fragment() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_OVERLAY && !hasOverlayPermission(requireContext())) {
-            showPermissionMandatoryDialog()
+        if (requestCode == REQ_OVERLAY) {
+            if (pendingEnable) {
+                pendingEnable = false
+                if (hasOverlayPermission(requireContext())) {
+                    proceedEnableService()
+                } else {
+                    Toast.makeText(requireContext(), "悬浮窗权限未开启，锁屏时可能无法弹出预警", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 }

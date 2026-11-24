@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 31+ 专属：统一系统 SplashScreen 底色，与窗口背景（bg_app_background）
+  同一成色，冷启动到首屏无色差跳变。
+  不设置 AnimatedIcon：ic_stat_warning 是白色通知小图，浅色底上会不可见；
+  底色一致 + 应用自己的窗口过渡（fade）已经足够平滑。
+  仅覆盖 Theme.Dianguard；告警主题保持瞬时弹出不受影响。
+-->
+<resources>
+    <style name="Theme.Dianguard" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowSplashScreenBackground">@color/ios_grouped_bg</item>
+    </style>
+</resources>

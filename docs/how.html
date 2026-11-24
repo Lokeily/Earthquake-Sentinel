@@ -208,15 +208,15 @@
     <div class="container">
       <div class="fx-head">
         <span class="fx-eyebrow">04 — 架构</span>
-        <h2>多源并行：一条链路挂了，还有别的</h2>
-        <p>预警报文要经过公共转发节点才能到手机。单一节点一旦限流、维护或断网，你就完全收不到——而且根本不会知道。地震哨兵同时常驻多条相互独立的链路，数据像光点一样持续汇聚。</p>
+        <h2>官方直连 + 多层降级：一条链路挂了，还有别的</h2>
+        <p>预警报文要经过网络才能到手机。单一节点一旦限流、维护或断网，你就完全收不到——而且根本不会知道。地震哨兵以 ICL 官方预警网为直连骨干，同时常驻多条转发链路，故障时逐层自动降级，数据像光点一样持续汇聚。</p>
       </div>
       <div class="arch reveal">
         <div class="arch-row">
-          <div class="arch-node"><b>Wolfx CENC</b><span>ws-api.wolfx.jp</span></div>
-          <div class="arch-node"><b>Wolfx SC / CQ</b><span>四川 · 重庆局</span></div>
-          <div class="arch-node"><b>BeeCLD · 2v8</b><span>api.2v8.cn</span></div>
-          <div class="arch-node"><b>FAN Studio</b><span>ws.fanstudio.tech</span></div>
+          <div class="arch-node"><b>ICL 官方预警网</b><span>1s 增量 · 官方直连</span></div>
+          <div class="arch-node"><b>Wolfx 四路转发</b><span>CENC / 川 / 渝 / 台</span></div>
+          <div class="arch-node"><b>CENC 官方目录</b><span>www.ceic.ac.cn</span></div>
+          <div class="arch-node"><b>BeeCLD · 2v8</b><span>可选 · 用户令牌</span></div>
         </div>
         <div class="arch-flow">
           <svg viewBox="0 0 600 58" preserveAspectRatio="none">
@@ -227,9 +227,9 @@
           </svg>
         </div>
         <div class="arch-row">
-          <div class="arch-node hub"><b>地震哨兵</b><span>WebSocket 并行汇聚 · 自动去重</span></div>
+          <div class="arch-node hub"><b>地震哨兵</b><span>先到先发 · 自动去重 · 三层降级</span></div>
         </div>
-        <p class="arch-caption">四条链路同时在线，谁先送达就用谁的；同一次地震从多个源到达时，只弹一次告警。</p>
+        <p class="arch-caption">多条链路同时在线，谁先送达就用谁的；同一次地震从多个源到达时，只弹一次告警。WS 故障自动降级 HTTP，全断仍有备用探测源。</p>
       </div>
     </div>
   </section>

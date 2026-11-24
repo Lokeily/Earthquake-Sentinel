@@ -22,13 +22,12 @@ import android.util.Log
  *
  * 全程走 ALARM 音频流，锁屏/静音下最大音量。
  */
+// 仅持有 ApplicationContext（见 init 中 context.applicationContext），不会泄漏 Activity；
+@SuppressLint("StaticFieldLeak")
 object EewVoice {
 
     private const val TAG = "EewVoice"
 
-    // 仅持有 ApplicationContext（见 init 中 context.applicationContext），不会泄漏 Activity；
-    // 此处抑制 Lint 对 object 单例静态字段的通用告警。
-    @SuppressLint("StaticFieldLeak")
     private lateinit var appCtx: Context
 
     // 第一段：短语循环
@@ -54,16 +53,22 @@ object EewVoice {
         appCtx = context.applicationContext
         val r = appCtx.resources
         val pkg = appCtx.packageName
-        fun id(n: String) = r.getIdentifier(n, "raw", pkg)
-        // NONE 没有对应资源，统一回退到 BLUE，故只需为 4 个真实等级建索引
         for (level in WarningLevel.entries) {
             if (level == WarningLevel.NONE) continue
             for (type in AudioType.entries) {
                 val name = "${type.prefix}_${level.name.lowercase()}"
-                resMap[level to type] = id(name)
+                resMap[level to type] = rawId(r, pkg, name)
             }
         }
     }
+
+    /**
+     * 反射获取 raw 资源 id。等级×类型数组是动态展开的（cnee_w_<level> / cnee_full_<level>），
+     * 无法用静态 R.raw 枚举，故此必要用 getIdentifier；但受 DiscouragedApi 提示，仅为内建资源名。
+     */
+    @SuppressLint("DiscouragedApi")
+    private fun rawId(res: android.content.res.Resources, pkg: String, name: String): Int =
+        res.getIdentifier(name, "raw", pkg)
 
     /** 取指定等级与类型对应的资源 id；NONE 回退到 BLUE，缺失返回 0（createPlayer 会安全跳过） */
     private fun resFor(level: WarningLevel, type: AudioType): Int {
@@ -74,19 +79,24 @@ object EewVoice {
     private fun phraseRes(level: WarningLevel): Int = resFor(level, AudioType.PHRASE)
     private fun fullRes(level: WarningLevel): Int = resFor(level, AudioType.FULL)
 
-    /**
-     * 第二段倒计时改为逐字音频：按剩余秒数取对应数字资源 count_<n>（10,9,...,1）。
-     * 共享、不分级；由 AlertActivity 按真实 ETA 每秒播一个，天然适配 5s/3s 等短告警。
-     */
-    private fun countDigitRes(n: Int): Int {
-        val name = "count_$n"
-        return appCtx.resources.getIdentifier(name, "raw", appCtx.packageName)
+    /** 第二段倒计时改为逐字音频：按剩余秒数取对应数字资源 count_<n>（10,9,...,1）。
+     *  资源和枚举等级不同，倒计时数字是固定集合，故直接静态引用 R.raw.count_<n>，避免反射。 */
+    private fun countDigitRes(n: Int): Int = when (n) {
+        1 -> R.raw.count_1
+        2 -> R.raw.count_2
+        3 -> R.raw.count_3
+        4 -> R.raw.count_4
+        5 -> R.raw.count_5
+        6 -> R.raw.count_6
+        7 -> R.raw.count_7
+        8 -> R.raw.count_8
+        9 -> R.raw.count_9
+        10 -> R.raw.count_10
+        else -> 0
     }
 
-    /** 第三段警报：共享 alarm 资源（来自用户提供的 单独警报声.mp3），不分级。 */
-    private fun alarmResShared(): Int {
-        return appCtx.resources.getIdentifier("alarm", "raw", appCtx.packageName)
-    }
+    /** 第三段警报：共享 alarm 资源（来自用户提供的 单独警报声.mp3），不分级。静态引用。 */
+    private fun alarmResShared(): Int = R.raw.alarm
 
     private fun alarmAttr() = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ALARM)

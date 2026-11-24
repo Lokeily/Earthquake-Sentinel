@@ -8,7 +8,6 @@ package com.dianguard.app
  * 保证状态变更的原子性和可追溯性。
  */
 data class ServiceState(
-    val connectedSourceCount: Int = 0,
     val wakeLockHeld: Boolean = false,
     val lastStatusText: String = "监听未开启",
     val headlineState: String = "监听未开启",

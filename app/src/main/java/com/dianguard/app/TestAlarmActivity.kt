@@ -157,7 +157,7 @@ class TestAlarmActivity : AppCompatActivity() {
         val epiLat = homeLat + dLat
         val epiLon = homeLon + dLon
         val actualDist = haversineKm(homeLat, homeLon, epiLat, epiLon)
-        val eta = AppConfig.estimateSWaveEtaSeconds(actualDist)
+        val eta = AppConfig.estimateSWaveEtaSeconds(actualDist, depth)
 
         // 5 秒倒计时
         showConfigPanel()
@@ -224,6 +224,8 @@ class TestAlarmActivity : AppCompatActivity() {
                     putExtra(EewService.EXTRA_REPORT_NUM, 1)
                     putExtra(EewService.EXTRA_SOURCE, simSource)
                     putExtra(EewService.EXTRA_TIME, simTimeMs)
+                    putExtra(EewService.EXTRA_EPI_LAT, epiLat)
+                    putExtra(EewService.EXTRA_EPI_LON, epiLon)
                 }
                 startActivity(intent)
 
@@ -245,12 +247,12 @@ class TestAlarmActivity : AppCompatActivity() {
 
                     // 第2报（中间报告号）
                     handler.postDelayed({
-                        sendSimRefresh(eventId, midMag, place, distKm, midEta, midIntensity, depth, 2, simSource, simTimeMs)
+                        sendSimRefresh(eventId, midMag, place, distKm, midEta, midIntensity, depth, 2)
                     }, midDelay)
 
                     // 第3报（最终报告号）
                     handler.postDelayed({
-                        sendSimRefresh(eventId, finalMag, place, distKm, finalEta, finalIntensity, depth, 3, simSource, simTimeMs)
+                        sendSimRefresh(eventId, finalMag, place, distKm, finalEta, finalIntensity, depth, 3)
                     }, finalDelay)
                 } else {
                     // 小跨度升级（如 4.0→5.5）：单次修正
@@ -258,33 +260,19 @@ class TestAlarmActivity : AppCompatActivity() {
                     val remainEta = etaSec - delayMs / 1000.0
                     val lastIntensity = "%.1f".format(estimateSiteIntensity(lastReport, distKm, depth))
                     handler.postDelayed({
-                        sendSimRefresh(eventId, lastReport, place, distKm, remainEta, lastIntensity, depth, 2, simSource, simTimeMs)
+                        sendSimRefresh(eventId, lastReport, place, distKm, remainEta, lastIntensity, depth, 2)
                     }, delayMs)
                 }
             }
         }.start()
     }
 
-    /** 发送模拟后续报广播 */
+    /** 发送模拟后续报事件（替代已废弃的 LocalBroadcastManager 广播） */
     private fun sendSimRefresh(
         eventId: String, mag: Double, place: String,
-        distKm: Double, eta: Double, intensity: String, depth: Double, reportNum: Int,
-        sourceName: String, timeMs: Long
+        distKm: Double, eta: Double, intensity: String, depth: Double, reportNum: Int
     ) {
-        val refresh = Intent(EewService.ACTION_REFRESH).apply {
-            putExtra(EewService.EXTRA_EVENT_ID, eventId)
-            putExtra(EewService.EXTRA_MAG, mag)
-            putExtra(EewService.EXTRA_PLACE, place)
-            putExtra(EewService.EXTRA_DISTANCE, distKm)
-            putExtra(EewService.EXTRA_ETA, eta)
-            putExtra(EewService.EXTRA_INTENSITY, intensity)
-            putExtra(EewService.EXTRA_DEPTH, depth)
-            putExtra(EewService.EXTRA_REPORT_NUM, reportNum)
-            putExtra(EewService.EXTRA_SOURCE, sourceName)
-            putExtra(EewService.EXTRA_TIME, timeMs)
-        }
-        androidx.localbroadcastmanager.content.LocalBroadcastManager
-            .getInstance(this@TestAlarmActivity).sendBroadcast(refresh)
+        AppEvents.postRefresh(eventId, mag, place, distKm, eta, intensity, depth, reportNum)
     }
 
     override fun onDestroy() {

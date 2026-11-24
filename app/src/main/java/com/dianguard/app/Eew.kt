@@ -21,7 +21,12 @@ data class Eew(
     val magnitude: Double,
     val depthKm: Double,
     val maxIntensity: String, // 预估最大烈度（如 "5" / "5-")
-    val originMs: Long = 0L   // 发震时刻 epoch 毫秒；0 表示未知（解析失败）。用于“仅推送开启监听后发生的地震”过滤。
+    val originMs: Long = 0L,  // 发震时刻 epoch 毫秒；0 表示未知（解析失败）。用于“仅推送开启监听后发生的地震”过滤。
+    // 服务器时钟偏移（v1.4.10，生命安全级一致性）：演练/后台中转帧携带 serverTime（后台发帧时刻），
+    // offset = serverTime − 手机收到时刻。倒计时用「手机时钟 + offset」即服务端时间轴计算，
+    // 手机时钟漂移（旧设备无 NTP 很常见）不再导致大屏与手机倒计时不同值。
+    // 官方真实源无 serverTime 字段，保持 0 = 维持原行为（真实场景手机时钟即权威）。
+    val clockOffsetMs: Long = 0L
 )
 
 /**
@@ -34,6 +39,25 @@ fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double 
     val a = sin(dLat / 2).pow(2) +
             cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
     return r * 2 * atan2(sqrt(a), sqrt(1 - a))
+}
+
+/**
+ * 计算收到某一报时 S 波尚需多久到达。
+ *
+ * 旧逻辑只用「空间震源距 / 波速」，等于从发震时刻重新开始计时；官方首报往往已在
+ * 发震后数秒才到达，导致真实告警与回放都把已经过去的时间重复算入倒计时。
+ * 本函数统一扣除 originMs → receivedMs 的已流逝时间。发震时刻未知时保守回退总传播时间。
+ */
+fun remainingSWaveEtaSeconds(
+    distanceKm: Double,
+    depthKm: Double,
+    originMs: Long,
+    receivedMs: Long = System.currentTimeMillis()
+): Double {
+    val total = AppConfig.estimateSWaveEtaSeconds(distanceKm, depthKm)
+    if (originMs <= 0L || receivedMs <= originMs) return total
+    val elapsed = (receivedMs - originMs) / 1000.0
+    return (total - elapsed).coerceAtLeast(0.0)
 }
 
 /**
@@ -123,6 +147,12 @@ fun parseEew(raw: String): Eew? {
 fun parseExternalEew(raw: String): Eew? {
     return try {
         val root = JSONObject(raw)
+        // 服务器时钟校准（v1.4.10）：后台帧带 serverTime（后台发帧时刻，服务端时间轴）。
+        // offset = serverTime − 本机解析时刻 ≈ 时钟差 + 局域网延迟（<50ms）。
+        // 倒计时改用「手机时钟 + offset」= 服务端时间轴计算 elapsed，
+        // 手机时钟漂移（旧设备常无 NTP）不再导致大屏与手机倒计时不同值。
+        val clockOffsetMs = root.optLong("serverTime", 0L)
+            .takeIf { it > 0 }?.let { it - System.currentTimeMillis() } ?: 0L
         val data: JSONObject = when {
             root.has("data") && root.get("data") is JSONObject -> root.getJSONObject("data")
             root.has("Data") && root.get("Data") is JSONObject -> root.getJSONObject("Data")
@@ -175,7 +205,7 @@ fun parseExternalEew(raw: String): Eew? {
             else -> 0L
         }
         val id = data.optString("id", eventId)
-        Eew(id, eventId, reportNum, originTime, hypo, lat, lon, mag, depth, maxInt, originMs)
+        Eew(id, eventId, reportNum, originTime, hypo, lat, lon, mag, depth, maxInt, originMs, clockOffsetMs)
     } catch (_: Exception) {
         null
     }
@@ -194,28 +224,37 @@ private fun formatUtc8(value: Long): String {
  * 支持：
  *  - 纯数字 → 视为 epoch（>1e12 毫秒，否则秒）；
  *  - "yyyy-MM-dd HH:mm:ss"（北京时，Wolfx CENC 主流格式）；
- *  - "yyyy-MM-dd'T'HH:mm:ss"（含尾部 'Z' 时按北京时近似，海外源极少用）。
+ *  - "yyyy-MM-dd'T'HH:mm:ss"（ISO，含尾部 'Z' 时按北京时近似，海外源极少用）；
+ *  - 带毫秒（".123"）或时区偏移（"+08:00" / "-05:00"）的变体（v1.4.3 增强，
+ *    自 BackupSource 私有实现回收到统一入口，负时区偏移不会被误认为日期连字符）。
  * 解析失败返回 0（未知），调用方据此走“不依赖发震时刻”的保守路径。
  */
 fun parseOriginTimeMs(s: String): Long {
-    val t = s.trim()
+    val t = s.trim().replace("T", " ").replace("Z", "")
     if (t.isEmpty()) return 0L
+    // 纯数字 → epoch。该分支天然安全：带小数点/连字符/HH:mm:ss 的字符串
+    // （含 "20260802153000.123" 这类无分隔日期）不满足 all { isDigit() }，
+    // 会走下方日期路径，不会被误判为 epoch 秒。
     if (t.all { it.isDigit() }) {
         val v = t.toLongOrNull() ?: return 0L
         return if (v > 1_000_000_000_000L) v else v * 1000L
     }
-    // "yyyy-MM-dd HH:mm:ss"（Asia/Shanghai）
-    try { ORIGIN_FMT_SH.parse(t)?.time?.let { return it } } catch (_: Exception) { }
-    // "yyyy-MM-dd'T'HH:mm:ss" / 尾部 'Z'
-    val iso = if (t.endsWith("Z", ignoreCase = true)) t.removeSuffix("Z") else t
-    try { ORIGIN_FMT_ISO.parse(iso)?.time?.let { return it } } catch (_: Exception) { }
+    // 统一规范化：去除毫秒部分 ".123"；仅在日期部分之后（位置 >10）截断时区后缀，
+    // 避免 "-05:00" 之类的负时区偏移被误判为日期连字符而错误截断。
+    val cleaned = t
+        .replace(Regex("\\.\\d+"), "")
+        .let { s2 ->
+            val tzIdx = s2.indexOfFirst { it == '+' || it == '-' }
+            if (tzIdx > 10) s2.substring(0, tzIdx).trim() else s2
+        }
+        .take(19) // "yyyy-MM-dd HH:mm:ss"
+    if (cleaned.length < 16) return 0L
+    // "yyyy-MM-dd HH:mm:ss"（Asia/Shanghai），ISO 的 "T" 已在上方规范化为空格
+    try { ORIGIN_FMT_SH.parse(cleaned)?.time?.let { return it } } catch (_: Exception) { }
     return 0L
 }
 
 private val ORIGIN_FMT_SH = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
-    timeZone = TimeZone.getTimeZone("Asia/Shanghai")
-}
-private val ORIGIN_FMT_ISO = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
     timeZone = TimeZone.getTimeZone("Asia/Shanghai")
 }
 
@@ -276,6 +315,46 @@ fun warningLevelByIntensity(siteIntensity: Double): WarningLevel = when {
     else -> WarningLevel.BLUE
 }
 
+// ===================== 烈度触发策略（v1.4.1 起，纯烈度，无震级门槛） =====================
+// 基于成都高新减灾研究所（ICL）烈度阈值口径：
+//   · 推荐烈度阈值：白天 2 度，夜间 3 度（365icl.com/View.asp?Pid=307 科普页；
+//     微博 @成都高新减灾研究所 2020-02-17：默认预警策略白天4级2度、夜间4级3度）
+//   · Dianguard 与 ICL 的唯一差异：不启用「震级」作为触发条件，只用「用户所在地烈度
+//     （由距震中距离计算）」触发，避免大震远距被震级门槛挡掉，保护远距离用户。
+// 抽取为纯函数以便单元测试锁定语义；AppConfig 委托本组函数。
+
+/** 白天起始小时（含）：6:00–22:00 视为白天 */
+const val ICL_DAY_START_HOUR = 6
+/** 夜间起始小时（不含）：22:00–次日6:00 视为夜间 */
+const val ICL_NIGHT_START_HOUR = 22
+
+/** 按小时取对应时段的烈度阈值（白天/夜间） */
+fun iclIntensityThreshold(
+    hourOfDay: Int,
+    dayIntensity: Double,
+    nightIntensity: Double
+): Double {
+    return if (hourOfDay in ICL_DAY_START_HOUR until ICL_NIGHT_START_HOUR) dayIntensity else nightIntensity
+}
+
+/**
+ * 纯烈度触发判定：用户所在地预估烈度 ≥ 该时段阈值（白天/夜间）。
+ * 不启用震级触发条件。边界：hourOfDay 需在 0..23，越界时保守按夜间（更严的阈值）处理。
+ */
+fun iclIntensityTriggered(
+    siteIntensity: Double,
+    hourOfDay: Int,
+    dayIntensity: Double,
+    nightIntensity: Double
+): Boolean {
+    val threshold = if (hourOfDay in 0..23) {
+        iclIntensityThreshold(hourOfDay, dayIntensity, nightIntensity)
+    } else {
+        nightIntensity
+    }
+    return siteIntensity >= threshold
+}
+
 /** 等级对应的展示文字（用于告警页徽标） */
 fun WarningLevel.label(): String = when (this) {
     WarningLevel.RED -> "红色预警"
@@ -321,24 +400,44 @@ fun estimateIntensityFromMagnitude(magnitude: Double): Double {
 }
 
 /**
- * 估算【用户所在地】的地震烈度，供告警判定与等级着色使用。
+ * 判断事件是否「发震太早」（事后告知场景）：发震时刻距今已超过 [LATE_ALERT_WINDOW_MS]。
  *
- * v1.3.0 升级为分区模型（GB 18306-2015 + 雷建成等2007 区域细化）：
- * 根据震中坐标自动选择青藏/新疆/东部强震/中强地震/川滇西南/四川盆地的最优短轴衰减系数，
- * 云南深源地震区使用郁曙君1993特殊公式。无坐标时回退汪素云等2000西部短轴。
+ * 背景（v1.4.4）：suppressQuakeNotification 的 60s 容差会在「刚开启监听」时放行
+ * 开启前 1 分钟内发震的事件；服务重启后 WS 也可能重推数分钟前的事件。这类报文到达
+ * 时 S 波很可能己经通过用户所在地，再播警报声只会惊吓用户、制造“软件失灵”的负面体验。
+ *
+ * ⚠️ 调用方必须与「S 波是否已通过用户所在地」组合使用（本函数只判事件新旧，不单独
+ * 拦截）：发震虽早但用户距震中很远、S 波尚未到达（ETA>0.5）时，仍是真实可用的倒计时，
+ * 必须保留全屏（如 1000km / 3.5km/s ≈ 4.8min 传播）。参考 EewAlertManager.triggerAlert。
+ *
+ * @return true = 发震太早；false = 正常或发震时刻未知（不拦截）
+ */
+fun isLateAlert(originMs: Long, nowMs: Long): Boolean =
+    originMs > 0L && nowMs - originMs > LATE_ALERT_WINDOW_MS
+
+/** 事后警报窗口：发震距今超过 3 分钟不再全屏（对标 HTTP 降级 4 分钟新鲜窗，保守取 3） */
+const val LATE_ALERT_WINDOW_MS = 3 * 60 * 1000L
+
+/**
+ * 估算【用户所在地】的地震烈度（无震中坐标的兜底重载）。
+ *
+ * v1.4.3 起委托 GeoUtils.estimateFallbackIntensity() 统一实现：
+ *  - 固定使用《中国地震烈度区划图(1990)》西部短轴（ln 形式）衰减 + 0.5σ 安全边际，
+ *    与五参数分区模型的「兜底分区」完全同语义，消除此前两套实现结果漂移——
+ *    历史页/回放页与告警页对同一地震（无坐标场景）烈度显示从此一致。
  *
  * @param magnitude       震级
  * @param epicenterDistKm 震中距（用户 ↔ 震中的地表距离）
  * @param depthKm         震源深度
  * @return 用户所在地预估烈度，范围 [0, 12]
  */
+@Deprecated(
+    "无坐标兜底入口，逻辑已并入 GeoUtils.estimateFallbackIntensity()；" +
+    "有震中坐标时请使用五参数重载（分区模型，更精确）。",
+    ReplaceWith("GeoUtils.estimateFallbackIntensity(magnitude, epicenterDistKm, depthKm)")
+)
 fun estimateSiteIntensity(magnitude: Double, epicenterDistKm: Double, depthKm: Double): Double {
-    if (magnitude <= 0) return 0.0
-    val d = if (depthKm > 0) depthKm else 10.0
-    val hypoDist = sqrt(epicenterDistKm * epicenterDistKm + d * d)
-    // 无坐标时回退汪素云等2000
-    val i = 2.941 + 1.363 * magnitude - 1.494 * ln(hypoDist + 7.0)
-    return i.coerceIn(0.0, 12.0)
+    return GeoUtils.estimateFallbackIntensity(magnitude, epicenterDistKm, depthKm)
 }
 
 /** 分区模型版本：传入震中坐标将自动选择最优衰减公式 */
@@ -411,4 +510,3 @@ fun parseIclEew(obj: JSONObject): Eew? {
         )
     } catch (_: Exception) { null }
 }
-

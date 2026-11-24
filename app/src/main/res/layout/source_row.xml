@@ -20,7 +20,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:textColor="@color/ios_label"
-        android:textSize="14sp"
+        android:textSize="15sp"
         android:singleLine="true"
         android:ellipsize="end" />
 
@@ -30,6 +30,6 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:textColor="@color/ios_label_secondary"
-        android:textSize="12sp" />
+        android:textSize="13sp" />
 
 </LinearLayout>

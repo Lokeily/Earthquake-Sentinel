@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.util.TypedValue
 import android.util.Log
 import android.content.Intent
 import android.view.View
@@ -17,7 +16,9 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,28 +43,28 @@ class AlertActivity : AppCompatActivity() {
     @Volatile private var countDownTimer: CountDownTimer? = null
     @Volatile private var vibrator: Vibrator? = null
 
-    // 优化 #6：记录倒计时起点，结束时比对“预期时长 vs 实际流逝”，用于精度分析
-    private var countdownStartMs = 0L
-
-    private lateinit var tvCountdown: TextView
     private lateinit var tvPlace: TextView
-    private lateinit var tvMag: TextView
+    private lateinit var tvDirection: TextView
     private lateinit var tvLevel: TextView
-    private lateinit var tvDamage: TextView
+    private lateinit var tvGuidance: TextView
+    private lateinit var tvEtaBanner: TextView
     private lateinit var btnDismiss: Button
-    private lateinit var tvUnit: TextView
-    private lateinit var tvCategory: TextView
     private lateinit var tvFooter: TextView
 
     // 底部"第X报：来自-距离-时间"行所需的、同一事件内不变化的字段（来源/发震时刻）
     private var currentSource: String = ""
     private var currentTimeMs: Long = 0L
+    /** 演练事件前缀：后台下发的 eventId 以 DRILL- 开头时显示【演练】，避免误认作真实地震 */
+    private var drillPrefix: String = ""
+
+    // 告警页信息行（预估烈度/深度/方位）：bind 时固化方位，修正报仅更新烈度与深度
+    private var currentDirection: String = ""
+    private var currentDepthKm: Double = 0.0
+    // 首报到达时 S 波已抵达（预警盲区）：解除横幅据此显示盲区专属提示
+    private var arrivedInBlindZone = false
 
     // 当前等级对应的文字配色（黄色面板为深色，其余为白色），供计时结束等场景复用
     private var themeTextColor: Int = android.graphics.Color.WHITE
-
-    // 根据屏幕高度动态计算的最大倒计时字号，避免大数字把下方信息挤出可视区
-    private var maxCountdownSp: Float = 72f
 
     private var currentEventId: String? = null
     private var currentLevel: WarningLevel = WarningLevel.NONE
@@ -72,46 +73,83 @@ class AlertActivity : AppCompatActivity() {
     private var countdownTriggered = false
     // 拉起告警前记录的 ALARM 流原始音量，解除时还原，避免设备长期处于最大音量
     private var savedAlarmVolume = -1
+    // 回放模式（测试版「预警回放」）：解除时不广播清除 EewService 的真实 activeEventId，
+    // 也不弹“余震提醒”，避免干扰真实预警链路（P0 修复）
+    private var isReplay = false
 
-    private val refreshReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-            if (intent?.action != EewService.ACTION_REFRESH) return
-            val eta = intent.getDoubleExtra(EewService.EXTRA_ETA, -1.0)
-            val eventId = intent.getStringExtra(EewService.EXTRA_EVENT_ID)
-            if (eventId == currentEventId && eta > 0) {
-                // 后续报修正 ETA：若被上修到 10 秒以上，允许重新触发倒计时语音播报
-                if (eta > 10) countdownTriggered = false
-                startCountdown(eta)
-                tvPlace.text = intent.getStringExtra(EewService.EXTRA_PLACE) ?: tvPlace.text
+    // 防抖：倒计时重启和等级切换的最低间隔（毫秒），避免多源修正报频繁打断用户
+    private var lastCountdownRestartMs = 0L
+    private var lastLevelChangeMs = 0L
+    private var lastRefreshEventMs = 0L
+    private var lastRefreshMag = 0.0
+    private var lastRefreshIntensity = 0.0
+    private var lastRefreshEta = 0.0
+    private val REFRESH_DEBOUNCE_MS = 3000L
 
-                // 真实场景：震级随报数递增（首报 M4.0 → 终报 M7.0）。
-                // 若新震级导致预警等级变化，实时更新全屏配色、语音短语和行动指引。
-                val newMag = intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)
-                val newIntensity = intent.getStringExtra(EewService.EXTRA_INTENSITY)?.toDoubleOrNull() ?: 0.0
-                val newLevel = warningLevelByIntensity(newIntensity)
-                val reportNum = intent.getIntExtra(EewService.EXTRA_REPORT_NUM, 0)
-                if (newLevel != currentLevel) {
-                    Log.i(TAG, "烈度变化: $currentLevel → $newLevel (第${reportNum}报 M${newMag} 烈度${"%.1f".format(newIntensity)})")
-                    currentLevel = newLevel
-                    tvLevel.text = currentLevel.label()
-                    tvLevel.setTextColor(levelColor(currentLevel))
-                    tvDamage.text = damageDescription(currentLevel)
-                    tvDamage.setTextColor(levelColor(currentLevel))
-                    tvCategory.text = currentLevel.category()
-                    tvCategory.setTextColor(levelColor(currentLevel))
-                    applyLevelTheme(currentLevel)
-                    // 若仍在短语循环阶段（倒计时 10..1 尚未触发），切换到新等级短语
-                    if (!countdownTriggered) {
-                        EewVoice.playPhraseLoop(currentLevel)
-                    }
-                    // 等级升级时补发一次震动，确保用户感知
-                    vibrate()
+    private var refreshJob: Job? = null
+
+    /**
+     * 处理同一事件的修正报（EewAlertManager → AppEvents.refresh → 本方法）。
+     * 同事件后续报即使 ETA=0（S 波已到达）也必须更新震级/烈度/报数——
+     * 旧逻辑 eta>0 才处理整份报文，导致到达后的官方终报被完全忽略。
+     */
+    private fun handleRefresh(ev: AppEvents.RefreshEvent) {
+        if (ev.eventId != currentEventId || ev.eta < 0) return
+        val now = System.currentTimeMillis()
+        val newMag = ev.mag
+        val newIntensity = ev.intensity.toDoubleOrNull() ?: 0.0
+        val reportNum = ev.reportNum
+
+        // 后续报防抖：相同参数连续刷新不超过 3 秒一次。
+        // 但震级/烈度/ETA 有显著变化时不受限。
+        val magChanged = Math.abs(newMag - lastRefreshMag) >= 0.3
+        val intensityChanged = Math.abs(newIntensity - lastRefreshIntensity) >= 0.5
+        val etaChanged = Math.abs(ev.eta - lastRefreshEta) > 3.0
+        if (!magChanged && !intensityChanged && !etaChanged && now - lastRefreshEventMs < REFRESH_DEBOUNCE_MS) {
+            Log.d(TAG, "忽略防抖刷新: 第${reportNum}报 M${"%.1f".format(newMag)} 烈度${"%.1f".format(newIntensity)}")
+            return
+        }
+        lastRefreshEventMs = now
+        lastRefreshMag = newMag
+        lastRefreshIntensity = newIntensity
+        lastRefreshEta = ev.eta
+
+        // 后续报修正 ETA：若被上修到 10 秒以上，允许重新触发倒计时语音播报
+        if (ev.eta > 10) countdownTriggered = false
+        startCountdown(ev.eta)
+        lastCountdownRestartMs = now
+        tvPlace.text = ev.place.ifEmpty { tvPlace.text.toString() }
+
+        // 真实场景：官方修正报可能上修也可能下修震级/烈度。
+        // 若等级变化，实时更新全屏配色、语音短语和行动指引。
+        val newLevel = warningLevelByIntensity(newIntensity)
+        if (newLevel != currentLevel) {
+            val oldLevel = currentLevel
+            Log.i(TAG, "烈度变化: $currentLevel → $newLevel (第${reportNum}报 M${"%.1f".format(newMag)} 烈度${"%.1f".format(newIntensity)})")
+            currentLevel = newLevel
+            tvLevel.text = currentLevel.label()
+            tvLevel.visibility =
+                if (currentLevel == WarningLevel.NONE) View.GONE else View.VISIBLE
+            tvLevel.setTextColor(levelColor(currentLevel))
+            tvGuidance.text = guidanceText(currentLevel)
+            tvGuidance.setTextColor(levelColor(currentLevel))
+            applyLevelTheme(currentLevel)
+            // 等级切换有最低间隔（3 秒），防止多源交叉修正导致反复切换语音/震动
+            if (now - lastLevelChangeMs >= REFRESH_DEBOUNCE_MS) {
+                lastLevelChangeMs = now
+                // 若仍在短语循环阶段（倒计时 10..1 尚未触发），切换到新等级短语
+                if (!countdownTriggered) {
+                    EewVoice.playPhraseLoop(currentLevel)
                 }
-                tvMag.text = magText(newMag)
-                val dist = intent.getDoubleExtra(EewService.EXTRA_DISTANCE, 0.0)
-                tvFooter.text = buildFooter(reportNum, dist)
+                // 仅等级升级时补发震动；下修不应制造新的紧急刺激。
+                if (newLevel.ordinal < oldLevel.ordinal) vibrate()
             }
         }
+        // 地点与震级合并为一行展示（元素去重），修正报直接更新
+        tvPlace.text = "$drillPrefix${ev.place} · ${magText(newMag)}"
+        // 底栏随修正报更新：报数/来源/时间/预估烈度/震源深度/距您距离
+        currentDepthKm = ev.depth
+        tvFooter.text = buildFooter(reportNum, ev.intensity, ev.depth, ev.distance)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -132,29 +170,24 @@ class AlertActivity : AppCompatActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // 真实预警时无论 App 是否在前台，都以悬浮窗形式强制弹出（需 SYSTEM_ALERT_WINDOW 权限）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                window.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-            } catch (_: Exception) { }
+        // 真实预警时无论 App 是否在前台，都以悬浮窗形式强制弹出（需 SYSTEM_ALERT_WINDOW 权限）。
+        // 必须先确认悬浮窗权限已授予：setType 本身不抛异常，若未授权，窗口添加阶段
+        // （onResume 后）才抛 BadTokenException 且无法捕获 → 页面拉起即崩溃。
+        // debug 包（applicationId 带 .debug 后缀）与正式包权限彼此独立，首次安装必未授权，
+        // 未授权时退化为普通全屏 Activity 展示，保证回放/模拟/真实预警至少可用。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+            && android.provider.Settings.canDrawOverlays(this)) {
+            window.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
         }
 
         setContentView(R.layout.activity_alert)
 
-        // 按屏幕高度给倒计时一个大号但不过分的字号：占屏幕高度约 16%，最多 76sp，
-        // 避免大数字在短屏/竖屏上把下方信息挤出或自身被裁切。
-        val dm = resources.displayMetrics
-        val screenHeightDp = dm.heightPixels / dm.density
-        maxCountdownSp = (screenHeightDp * 0.16f).coerceIn(48f, 76f)
-
-        tvCountdown = findViewById(R.id.tv_countdown)
         tvPlace = findViewById(R.id.tv_place)
-        tvMag = findViewById(R.id.tv_mag)
+        tvDirection = findViewById(R.id.tv_direction)
         tvLevel = findViewById(R.id.tv_level)
-        tvDamage = findViewById(R.id.tv_damage)
+        tvGuidance = findViewById(R.id.tv_guidance)
+        tvEtaBanner = findViewById(R.id.tv_eta_banner)
         btnDismiss = findViewById(R.id.btn_dismiss)
-        tvUnit = findViewById(R.id.tv_unit)
-        tvCategory = findViewById(R.id.tv_category)
         tvFooter = findViewById(R.id.tv_footer)
 
         bindAlertData(intent)
@@ -172,13 +205,22 @@ class AlertActivity : AppCompatActivity() {
         boostAlarmVolume()
         vibrate()
 
-        LocalBroadcastManager.getInstance(this)
-            .registerReceiver(refreshReceiver, android.content.IntentFilter(EewService.ACTION_REFRESH))
+        // 订阅修正报事件流（替代 LocalBroadcastManager），生命周期自动取消
+        refreshJob = lifecycleScope.launch {
+            AppEvents.refresh.collect { handleRefresh(it) }
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         intent ?: return
+        // 安全隔离（P0 修复）：若当前正在展示真实预警（非回放），而新来的 Intent 是回放，
+        // 则忽略该回放，避免回放覆盖真实预警弹窗，导致用户错过真实地震。
+        val newIsReplay = intent.getBooleanExtra(EewService.EXTRA_REPLAY, false)
+        if (!isReplay && newIsReplay) {
+            Log.i(TAG, "回放意图被忽略：当前正在展示真实预警，回放不能覆盖")
+            return
+        }
         setIntent(intent)
         val newEventId = intent.getStringExtra(EewService.EXTRA_EVENT_ID)
         // 同事件后续报交给 refreshReceiver 处理，不在此重置
@@ -199,7 +241,9 @@ class AlertActivity : AppCompatActivity() {
         countdownTriggered = false
 
         currentEventId = intent.getStringExtra(EewService.EXTRA_EVENT_ID)
+        isReplay = intent.getBooleanExtra(EewService.EXTRA_REPLAY, false)
         val place = ZhConvert.toSimplified(intent.getStringExtra(EewService.EXTRA_PLACE) ?: "未知地区")
+        drillPrefix = if (currentEventId?.startsWith("DRILL-") == true || place.contains("演练")) "【演练】" else ""
         val mag = intent.getDoubleExtra(EewService.EXTRA_MAG, 0.0)
         val intensityStr = intent.getStringExtra(EewService.EXTRA_INTENSITY) ?: "-"
         val siteIntensity = intensityStr.toDoubleOrNull() ?: 0.0
@@ -209,22 +253,33 @@ class AlertActivity : AppCompatActivity() {
         currentSource = intent.getStringExtra(EewService.EXTRA_SOURCE) ?: ""
         currentTimeMs = intent.getLongExtra(EewService.EXTRA_TIME, 0L)
 
-        tvPlace.text = place
-        tvMag.text = magText(mag)
+        tvPlace.text = "$drillPrefix$place · ${magText(mag)}"
         tvLevel.text = currentLevel.label()
         tvLevel.setTextColor(levelColor(currentLevel))
         tvLevel.visibility =
             if (currentLevel == WarningLevel.NONE) android.view.View.GONE else android.view.View.VISIBLE
-        tvDamage.text = damageDescription(currentLevel)
-        tvDamage.setTextColor(levelColor(currentLevel))
-        tvCategory.text = currentLevel.category()
-        tvCategory.setTextColor(levelColor(currentLevel))
+        tvGuidance.text = guidanceText(currentLevel)
+        tvGuidance.setTextColor(levelColor(currentLevel))
+        val depthKm = intent.getDoubleExtra(EewService.EXTRA_DEPTH, 0.0)
         val distKm = intent.getDoubleExtra(EewService.EXTRA_DISTANCE, 0.0)
-        tvFooter.text = buildFooter(intent.getIntExtra(EewService.EXTRA_REPORT_NUM, 0), distKm)
+        val epiLat = intent.getDoubleExtra(EewService.EXTRA_EPI_LAT, 999.0)
+        val epiLon = intent.getDoubleExtra(EewService.EXTRA_EPI_LON, 999.0)
+        // ICL 式方位提示：震中位于用户的哪个方向（有定位且报文带震中坐标时才有）
+        currentDirection = if (AppConfig.hasLocation && epiLat != 999.0 && epiLon != 999.0) {
+            GeoUtils.bearingDirection(AppConfig.homeLat, AppConfig.homeLon, epiLat, epiLon)
+        } else ""
+        currentDepthKm = depthKm
+        tvDirection.text = if (currentDirection.isNotBlank()) "震中位于您的${currentDirection}方向" else ""
+        val eta = intent.getDoubleExtra(EewService.EXTRA_ETA, 0.0)
+        // 首报到达时 S 波已抵达 → 用户处于预警盲区（ICL 式盲区提示）
+        arrivedInBlindZone = eta <= 0.5
+        tvFooter.text = buildFooter(
+            intent.getIntExtra(EewService.EXTRA_REPORT_NUM, 0),
+            intensityStr, depthKm, distKm
+        )
 
         applyLevelTheme(currentLevel)
 
-        val eta = intent.getDoubleExtra(EewService.EXTRA_ETA, 0.0)
         // 若 S 波已几乎到达（<=0.5s），直接显示“地震波已抵达”并拉警报，不播前置短语
         if (eta > 0.5) {
             EewVoice.playPhraseLoop(currentLevel)
@@ -238,36 +293,33 @@ class AlertActivity : AppCompatActivity() {
     private fun magText(mag: Double): String = "%.1f级地震".format(mag)
 
     /**
-     * 四级预警的破坏描述（仅烈度区间与破坏现象）。
-     * 烈度区间对齐《中国地震烈度表》(GB/T 17742-2020) 与中国地震局预警等级标准
-     * （红≥7°灾害性 / 橙5-6°灾害性 / 黄3-4°告知性 / 蓝<3°告知性）。
-     * 不再附带"趴下、掩护、抓牢"等通用避险指引——
-     * 那是与底部固定文案重复、对低烈度场景反而误导的内容；
-     * 真正的紧急避险由警报声和应急演练承担，文字只描述地震本身。
+     * 一句话避险判定（简短一行，ICL 式）。
+     * 按本地预估烈度（GB/T 17742-2020 / 中国地震局预警等级标准）给出对应结论，
+     * 不展开具体避险教学——紧急避险由警报声、语音播报与应急演练承担。
      */
-    private fun damageDescription(level: WarningLevel): String = when (level) {
-        WarningLevel.BLUE ->
-            "预估烈度 1-2 度：多数人无感或轻微有感"
-        WarningLevel.YELLOW ->
-            "预估烈度 3-4 度：室内多数人有感，悬挂物明显摆动"
-        WarningLevel.ORANGE ->
-            "预估烈度 5-6 度：多数人站立不稳、惊逃户外，少数轻家具移动"
-        WarningLevel.RED ->
-            "预估烈度 7 度及以上：物品掉落、家具倾倒，房屋可能破坏"
+    private fun guidanceText(level: WarningLevel): String = when (level) {
+        WarningLevel.RED -> "强破坏性地震！请立即就地避险"
+        WarningLevel.ORANGE -> "破坏性地震！请立即就近避险"
+        WarningLevel.YELLOW -> "强有感地震，请注意避险"
+        WarningLevel.BLUE -> "轻微有感地震，请保持冷静"
         WarningLevel.NONE -> ""
     }
 
     /**
-     * 底部一行小字：第X报 · 来自哪里 · 距用户定位距离 · 发震时刻。
+     * 底部信息（用户要求：烈度/深度/距离显示在时间后面）：
+     * 第X报 · 来自哪里 · 发震时刻 · 预估烈度X度 · 震源深度X公里 · 距您X公里。
      * 来源与发震时刻取自同事件固化的 currentSource / currentTimeMs（刷新报不改变），
-     * 报数与距离随刷新报文更新。
+     * 报数/烈度/深度/距离随修正报更新。
      */
-    private fun buildFooter(reportNum: Int, distKm: Double): String {
+    private fun buildFooter(reportNum: Int, intensityStr: String, depthKm: Double, distKm: Double): String {
         val reportLabel = if (reportNum <= 0) "首报" else "第${reportNum}报"
         val srcLabel = if (currentSource.isBlank()) "—" else currentSource
-        val distLabel = if (distKm > 0) "距您${distKm.toInt()}km" else "—"
         val time = formatOriginTime(currentTimeMs)
-        return "$reportLabel · 来自$srcLabel · $distLabel · $time"
+        val sb = StringBuilder("$reportLabel · 来自$srcLabel · $time")
+        if (intensityStr.isNotBlank() && intensityStr != "-") sb.append(" · 预估烈度${intensityStr}度")
+        if (depthKm > 0) sb.append(" · 震源深度${depthKm.toInt()}公里")
+        if (distKm > 0) sb.append(" · 距您${distKm.toInt()}公里")
+        return sb.toString()
     }
 
     /** epoch 毫秒 → "HH:mm:ss"（北京时间）；0/负表示未知，返回占位符 */
@@ -298,11 +350,9 @@ class AlertActivity : AppCompatActivity() {
         // 背景板（根布局）跟随等级
         findViewById<View>(R.id.root_alert).setBackgroundColor(bg)
 
-        // 状态栏 / 导航栏同步为同色，沉浸一致
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = bg
-            window.navigationBarColor = bg
-        }
+        // 状态栏 / 导航栏同步为同色，沉浸一致（minSdk 21 = LOLLIPOP，无需 SDK 守卫）
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
         // 浅色背景下让状态栏图标为深色（API 23+）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             window.decorView.systemUiVisibility = if (lightBg) {
@@ -313,61 +363,36 @@ class AlertActivity : AppCompatActivity() {
         }
 
         // 文字配色随等级背景翻转（黄色面板用纯黑，其余用白色）
-        tvCountdown.setTextColor(themeTextColor)
         tvPlace.setTextColor(themeTextColor)
-        tvMag.setTextColor(themeTextColor)
-        tvUnit.setTextColor(themeTextColor)
-        tvDamage.setTextColor(themeTextColor)
-        tvLevel.setTextColor(themeTextColor)
-        tvCategory.setTextColor(themeTextColor)
-
-        // 等级徽标背景与文字保持足够对比：黄底用白底深灰边徽标，深底用半透明白徽标
-        tvLevel.background = makeLevelBadge(level)
+        tvDirection.setTextColor(themeTextColor)
+        tvGuidance.setTextColor(themeTextColor)
 
         // 描边策略：黄底不要阴影；深底用黑影把白字分离出来
         if (lightBg) {
             clearTextShadow()
             // 黄底上小号说明文字容易发虚，稍微加粗一点点
-            tvDamage.paint.isFakeBoldText = true
+            tvGuidance.paint.isFakeBoldText = true
         } else {
             applyTextOutline()
-            tvDamage.paint.isFakeBoldText = false
+            tvGuidance.paint.isFakeBoldText = false
         }
-    }
-
-    private fun makeLevelBadge(level: WarningLevel): android.graphics.drawable.GradientDrawable {
-        val drawable = android.graphics.drawable.GradientDrawable()
-        drawable.shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-        drawable.cornerRadius = 48f
-        if (level == WarningLevel.YELLOW) {
-            drawable.setColor(android.graphics.Color.WHITE)
-            drawable.setStroke(2, android.graphics.Color.parseColor("#E5E5EA"))
-        } else {
-            drawable.setColor(android.graphics.Color.parseColor("#33FFFFFF"))
-            drawable.setStroke(2, android.graphics.Color.parseColor("#CCFFFFFF"))
-        }
-        return drawable
     }
 
     private fun clearTextShadow() {
-        tvCountdown.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
-        tvMag.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
         tvPlace.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
-        tvLevel.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
-        tvDamage.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
-        tvCategory.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
+        tvDirection.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
+        tvGuidance.setShadowLayer(0f, 0f, 0f, android.graphics.Color.TRANSPARENT)
     }
 
     /**
-     * 给倒计时大数字与关键文字叠加黑色描边光晕。
+     * 给关键文字叠加黑色描边光晕。
      * 仅用于红/橙/蓝等深色背景，把白字从彩色背景中分离出来。
+     * （等级横幅与倒计时横幅都在深色半透明条上，对比已足够，无需描边。）
      */
     private fun applyTextOutline() {
-        tvCountdown.setShadowLayer(10f, 0f, 0f, android.graphics.Color.BLACK)
-        tvMag.setShadowLayer(5f, 0f, 0f, android.graphics.Color.BLACK)
         tvPlace.setShadowLayer(5f, 0f, 0f, android.graphics.Color.BLACK)
-        tvLevel.setShadowLayer(4f, 0f, 0f, android.graphics.Color.BLACK)
-        tvCategory.setShadowLayer(3f, 0f, 0f, android.graphics.Color.BLACK)
+        tvDirection.setShadowLayer(3f, 0f, 0f, android.graphics.Color.BLACK)
+        tvGuidance.setShadowLayer(3f, 0f, 0f, android.graphics.Color.BLACK)
     }
 
     private fun startCountdown(etaSeconds: Double) {
@@ -383,17 +408,14 @@ class AlertActivity : AppCompatActivity() {
         }
 
         val totalMs = (etaSeconds * 1000).toLong().coerceAtLeast(1000)
-        // 优化 #6：记录起点，供 onFinish 比对精度
-        countdownStartMs = System.currentTimeMillis()
-        // 倒计时进行中：恢复大字号并显示「秒」单位；归零后会被 onFinish 隐藏
-        tvCountdown.setTextSize(TypedValue.COMPLEX_UNIT_SP, maxCountdownSp)
-        tvUnit.visibility = View.VISIBLE
-        tvCountdown.text = ((totalMs + 999) / 1000).toString()
+        // 倒计时提示横幅（主视觉）：初始 X 秒后到达
+        tvEtaBanner.text = "地震波将于 ${((totalMs + 999) / 1000)} 秒后到达"
 
         countDownTimer = object : CountDownTimer(totalMs, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 val sec = (millisUntilFinished / 1000).toInt() + 1
-                tvCountdown.text = sec.toString()
+                // 提示横幅随秒数实时更新（ICL 式，主视觉）
+                tvEtaBanner.text = "地震波将于 $sec 秒后到达"
                 // 进入 1..10 后逐秒播对应数字（10,9,...,1），天然适配 5s/3s 等短告警
                 if (sec in 1..10) {
                     if (!countdownTriggered) {
@@ -406,9 +428,6 @@ class AlertActivity : AppCompatActivity() {
 
             override fun onFinish() {
                 showArrived()
-                // 优化 #6：记录实际耗时
-                val actual = System.currentTimeMillis() - countdownStartMs
-                Log.d(TAG, "倒计时结束：预期=${totalMs}ms 实际=${actual}ms")
                 EewVoice.stopCountdown()
                 if (!alarmStarted) {
                     alarmStarted = true
@@ -418,13 +437,10 @@ class AlertActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** 倒计时归零或 S 波已到达时的统一 UI：显示「地震波已抵达」，隐藏「秒」单位 */
+    /** 倒计时归零或 S 波已到达时的统一 UI（ICL 式）：横幅切为到达/盲区状态 */
     private fun showArrived() {
-        tvCountdown.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f)
-        tvCountdown.text = "地震波已抵达"
-        tvCountdown.setTextColor(themeTextColor)
-        tvUnit.visibility = View.GONE
-        // 震中地点是核心信息，倒计时结束后继续保持显示，绝不被替换
+        tvEtaBanner.text = if (arrivedInBlindZone) "您位于预警盲区 · 地震波已到达，请立即避险"
+                           else "地震波已抵达 · 请立即避险"
     }
 
     private fun boostAlarmVolume() {
@@ -464,22 +480,34 @@ class AlertActivity : AppCompatActivity() {
         restoreAlarmVolume()
         countDownTimer?.cancel()
         try { vibrator?.cancel() } catch (_: Exception) { }
-        try {
-            LocalBroadcastManager.getInstance(this)
-                .sendBroadcast(android.content.Intent(EewService.ACTION_ALERT_DISMISSED))
-        } catch (_: Exception) { }
-        // 余震提醒：强震后大概率有余震
-        if (currentLevel == WarningLevel.ORANGE || currentLevel == WarningLevel.RED) {
-            Toast.makeText(this, "余震可能发生，请保持警惕！", Toast.LENGTH_LONG).show()
+        // 回放模式：不广播清除 EewService 的 activeEventId，避免干扰真实预警链路
+        if (!isReplay) {
+            try {
+                AppEvents.postAlertDismissed()
+            } catch (_: Exception) { }
+            // 余震提醒：强震后大概率有余震
+            if (currentLevel == WarningLevel.ORANGE || currentLevel == WarningLevel.RED) {
+                Toast.makeText(this, "余震可能发生，请保持警惕！", Toast.LENGTH_LONG).show()
+            }
         }
         finish()
     }
 
+    /**
+     * 页面进入后台（如用户接听电话 / 被系统覆盖）时立即停止震动，
+     * 避免持续震动穿透到其他界面。返回前台由 bindAlertData / handleRefresh 重新拉起震动。
+     * （v1.4.3 补充：原实现仅 onDestroy 释放，onStop 场景会持续震动。）
+     */
+    override fun onStop() {
+        super.onStop()
+        try { vibrator?.cancel() } catch (_: Exception) { }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        refreshJob?.cancel()
         EewVoice.release()
         restoreAlarmVolume()
         try { vibrator?.cancel() } catch (_: Exception) { }
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(refreshReceiver)
     }
 }

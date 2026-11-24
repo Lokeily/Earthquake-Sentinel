@@ -12,6 +12,7 @@ captures/
 *.jks
 *.keystore
 signing.properties
+secrets.properties
 
 # 本地归档与临时文件
 _archived/

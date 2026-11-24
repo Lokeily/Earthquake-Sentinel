@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ios_grouped_bg">
+    android:background="@drawable/bg_app_background">
 
     <!-- 主内容区 -->
     <ScrollView
@@ -28,13 +30,13 @@
                 <ImageView android:id="@+id/btn_back"
                     android:layout_width="32dp" android:layout_height="32dp"
                     android:padding="4dp" android:src="@drawable/ic_chevron_left"
-                    android:tint="@color/ios_label" android:clickable="true"
+                    app:tint="@color/ios_label" android:clickable="true"
                     android:focusable="true" android:contentDescription="@string/back"
                     android:background="?android:attr/selectableItemBackground" />
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:layout_marginStart="8dp" android:text="@string/test_alarm_title"
-                    android:textColor="@color/ios_label" android:textSize="22sp" android:textStyle="bold" />
+                    android:textColor="@color/ios_label" android:textSize="26sp" android:textStyle="bold" />
             </LinearLayout>
 
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -85,7 +87,8 @@
         android:background="#CC000000">
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
-            android:layout_weight="1" android:clickable="true" />
+            android:layout_weight="1" android:clickable="true" android:focusable="true"
+            tools:ignore="UselessLeaf" />
 
         <ScrollView
             android:layout_width="match_parent"
@@ -94,7 +97,7 @@
 
             <LinearLayout android:id="@+id/panel_config"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="vertical" android:background="@color/ios_grouped_bg"
+                android:orientation="vertical" android:background="@drawable/bg_app_background"
                 android:padding="20dp" android:clickable="true"
                 android:focusable="true">
 
@@ -127,7 +130,7 @@
                         android:layout_height="44dp" android:background="@drawable/bg_input"
                         android:paddingHorizontal="14dp" android:text="5.0"
                         android:textColor="@color/ios_label" android:textSize="15sp"
-                        android:inputType="numberDecimal" android:hint="3.0 - 8.0"
+                        android:inputType="numberDecimal" android:importantForAutofill="no" android:hint="3.0 - 8.0"
                         android:maxLines="1" />
 
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -164,7 +167,7 @@
                     android:layout_marginTop="4dp" android:background="@drawable/bg_input"
                     android:paddingHorizontal="14dp" android:visibility="gone"
                     android:textColor="@color/ios_label" android:textSize="15sp"
-                    android:inputType="numberDecimal" android:hint="3.0 - 8.0"
+                    android:inputType="numberDecimal" android:importantForAutofill="no" android:hint="3.0 - 8.0"
                     android:maxLines="1" />
 
                 <Space android:layout_width="match_parent" android:layout_height="16dp" />
@@ -177,9 +180,9 @@
                 <EditText android:id="@+id/et_depth"
                     android:layout_width="match_parent" android:layout_height="44dp"
                     android:layout_marginTop="6dp" android:background="@drawable/bg_input"
-                    android:paddingHorizontal="14dp" android:textColor="@color/ios_label"
+                    android:paddingHorizontal="14dp"                     android:textColor="@color/ios_label"
                     android:textSize="15sp" android:inputType="numberDecimal"
-                    android:hint="随机（下限5 / 上限50 km）" android:maxLines="1" />
+                    android:importantForAutofill="no" android:hint="随机（下限5 / 上限50 km）" android:maxLines="1" />
 
                 <Space android:layout_width="match_parent" android:layout_height="16dp" />
 
@@ -191,9 +194,9 @@
                 <EditText android:id="@+id/et_distance"
                     android:layout_width="match_parent" android:layout_height="44dp"
                     android:layout_marginTop="6dp" android:background="@drawable/bg_input"
-                    android:paddingHorizontal="14dp" android:textColor="@color/ios_label"
+                    android:paddingHorizontal="14dp"                     android:textColor="@color/ios_label"
                     android:textSize="15sp" android:inputType="numberDecimal"
-                    android:hint="随机（下限0 / 上限1000 km）" android:maxLines="1" />
+                    android:importantForAutofill="no" android:hint="随机（下限0 / 上限1000 km）" android:maxLines="1" />
 
                 <Space android:layout_width="match_parent" android:layout_height="20dp" />
 

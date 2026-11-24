@@ -1,223 +1,720 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 更多设置（二级菜单，v1.3.1）：由设置页「更多设置」行下钻进入 -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 更多设置（二级菜单，v1.4.2 信息架构重构）：数据源 / 通用 / 关于。
+     由设置页「更多设置」行下钻进入，顶部返回 pop 回设置页。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ios_grouped_bg"
-    android:fillViewport="true"
-    android:scrollbars="none">
+    android:background="@drawable/bg_app_background">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="0dp"
-        android:paddingBottom="32dp">
-
-        <!-- 顶部栏：返回 + 标题 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@color/ios_grouped_bg">
-
-            <ImageView
-                android:id="@+id/iv_back"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:padding="4dp"
-                android:src="@drawable/ic_chevron_left"
-                android:tint="@color/ios_label"
-                android:clickable="true"
-                android:focusable="true"
-                android:contentDescription="@string/back"
-                android:background="?android:attr/selectableItemBackground" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="@string/more_settings_title"
-                android:textColor="@color/ios_label"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <Space
-                android:layout_width="32dp"
-                android:layout_height="32dp" />
-        </LinearLayout>
-
-        <!-- ===================== 通用 ===================== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/more_section_common"
-            android:textColor="@color/ios_label_secondary"
-            android:textSize="13sp" />
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_card">
+            android:paddingHorizontal="16dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="32dp">
 
+            <!-- 顶部栏：返回 + 标题 -->
             <LinearLayout
-                android:id="@+id/row_selfcheck"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="56dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?android:attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/btn_selfcheck"
-                    android:textColor="@color/ios_label"
-                    android:textSize="16sp" />
+                android:background="@drawable/bg_app_background">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_chevron_right"
-                    android:tint="@color/ios_label_secondary" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1px"
-                android:background="@color/ios_separator" />
-
-            <LinearLayout
-                android:id="@+id/row_update"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?android:attr/selectableItemBackground">
+                    android:id="@+id/iv_back"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_chevron_left"
+                    app:tint="@color/ios_label"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:contentDescription="@string/back"
+                    android:background="?android:attr/selectableItemBackground" />
 
                 <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/btn_check_update"
-                    android:textColor="@color/ios_label"
-                    android:textSize="16sp" />
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_chevron_right"
-                    android:tint="@color/ios_label_secondary" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1px"
-                android:background="@color/ios_separator" />
-
-            <LinearLayout
-                android:id="@+id/row_clear"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?android:attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/history_clear_settings"
-                    android:textColor="@color/alert_red"
-                    android:textSize="16sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- ===================== 关于 ===================== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/more_section_about"
-            android:textColor="@color/ios_label_secondary"
-            android:textSize="13sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/bg_card">
-
-            <LinearLayout
-                android:id="@+id/row_disclaimer"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?android:attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/btn_disclaimer"
-                    android:textColor="@color/ios_label"
-                    android:textSize="16sp" />
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_chevron_right"
-                    android:tint="@color/ios_label_secondary" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1px"
-                android:background="@color/ios_separator" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp">
-
-                <TextView
-                    android:id="@+id/tv_about_version"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="center"
-                    android:textColor="@color/ios_label_secondary"
-                    android:textSize="15sp" />
-            </LinearLayout>
-        </LinearLayout>
+                    android:text="@string/more_settings_title"
+                    android:textColor="@color/ios_label"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
 
-    </LinearLayout>
-</ScrollView>
+                <Space
+                    android:layout_width="32dp"
+                    android:layout_height="32dp" />
+            </LinearLayout>
+
+            <!-- ===================== 数据源 ===================== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/section_source"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="13sp" />
+
+            <!-- BeeCLD 用户自注册源（可选数据源） -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/beecld_title"
+                    android:textColor="@color/ios_label"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/beecld_desc"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btn_beecld_register"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:text="@string/beecld_register_btn"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <EditText
+                    android:id="@+id/et_beecld_api"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:hint="@string/beecld_api_hint"
+                    android:textColor="@color/ios_label"
+                    android:textSize="15sp"
+                    android:inputType="text"
+                    android:importantForAutofill="no" />
+
+                <Button
+                    android:id="@+id/btn_beecld_save"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:text="@string/beecld_save_btn"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <Button
+                    android:id="@+id/btn_beecld_disable"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_button_secondary"
+                    android:text="@string/beecld_disable_btn"
+                    android:textColor="@color/ios_blue"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <TextView
+                    android:id="@+id/tv_beecld_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/beecld_status_disabled"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- 演练控制台（v1.4.5）：仅 debug 演练包可见，release 正式包由代码隐藏。
+                 填入 Sentinel Console 后台生成的接入地址后，本设备成为唯一接收演练报文的演示机。 -->
+            <LinearLayout
+                android:id="@+id/drill_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="演练控制台 · Sentinel Console"
+                    android:textColor="@color/ios_label"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="仅测试版可见。填入后台「演示机白名单」生成的接入地址，即可从电脑控制台远程发起模拟地震，全流程走真实预警链路。演练报文只下发到本设备，不会触达任何正式用户。"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="12sp" />
+
+                <EditText
+                    android:id="@+id/et_drill_endpoint"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:hint="ws://192.168.x.x:8787/ws/cea?token=...&amp;device=..."
+                    android:textColor="@color/ios_label"
+                    android:textSize="13sp"
+                    android:inputType="textUri"
+                    android:importantForAutofill="no" />
+
+                <Button
+                    android:id="@+id/btn_drill_connect"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:text="连接演练控制台"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <Button
+                    android:id="@+id/btn_drill_disconnect"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_button_secondary"
+                    android:text="断开并停用"
+                    android:textColor="@color/ios_blue"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <TextView
+                    android:id="@+id/tv_drill_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="未启用"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="12sp" />
+
+                <!-- 参考位置：演练包不读取 GPS，直接用手动输入或后台下发的经纬度 -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:layout_marginTop="14dp"
+                    android:background="@color/ios_separator" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="参考位置（演练专用）"
+                    android:textColor="@color/ios_label"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="不读取 GPS（实验环境拿到的是假位置）。可直接输入经纬度；后台修改坐标也会实时下发到这里。两边始终自动保持一致。"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="11sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <EditText
+                        android:id="@+id/et_drill_lat"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_input"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:hint="纬度 25.0389"
+                        android:textColor="@color/ios_label"
+                        android:textSize="13sp"
+                        android:inputType="numberDecimal|numberSigned"
+                        android:importantForAutofill="no" />
+
+                    <Space
+                        android:layout_width="8dp"
+                        android:layout_height="1dp" />
+
+                    <EditText
+                        android:id="@+id/et_drill_lon"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_input"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:hint="经度 102.7183"
+                        android:textColor="@color/ios_label"
+                        android:textSize="13sp"
+                        android:inputType="numberDecimal|numberSigned"
+                        android:importantForAutofill="no" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btn_drill_apply_location"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:text="应用定位并同步后台"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <Button
+                    android:id="@+id/btn_drill_restore_gps"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_button_secondary"
+                    android:text="恢复自动定位"
+                    android:textColor="@color/ios_blue"
+                    android:textSize="13sp"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <TextView
+                    android:id="@+id/tv_drill_location"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="当前：未设置演练参考位置"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="前提：已开启「预警监听」。演练事件（DRILL- 前缀）会标注【演练】，经后台中转的真实预警不标注。密钥边界：BeeCLD 等真实源的 API Key 只保存在后台电脑，本 App 永不内置、也不会从后台接收任何密钥；普通用户需自行申请后在数据源设置里填写。正式 release 包不含本入口、不开放明文流量。"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- ===================== 通用 ===================== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/more_section_common"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="13sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card">
+
+                <!-- 测试报警 -->
+                <LinearLayout
+                    android:id="@+id/row_test"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/btn_test"
+                        android:textColor="@color/ios_label"
+                        android:textSize="16sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/ios_label_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <!-- 系统自检 -->
+                <LinearLayout
+                    android:id="@+id/row_selfcheck"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/btn_selfcheck"
+                        android:textColor="@color/ios_label"
+                        android:textSize="16sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/ios_label_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <!-- 检查更新 -->
+                <LinearLayout
+                    android:id="@+id/row_update"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/btn_check_update"
+                        android:textColor="@color/ios_label"
+                        android:textSize="16sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/ios_label_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/sep_replay_top"
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <!-- 预警回放（测试版）：重现历史预警真实流程 -->
+                <LinearLayout
+                    android:id="@+id/row_replay"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/replay_title"
+                        android:textColor="@color/ios_label"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:text="测试版"
+                        android:textColor="@color/ios_blue"
+                        android:textSize="11sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/ios_label_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/sep_replay_bottom"
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <!-- 清空回放数据（测试版）：与回放入口同为 debug 专属 -->
+                <LinearLayout
+                    android:id="@+id/row_clear_replay"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/replay_clear_settings"
+                        android:textColor="@color/alert_red"
+                        android:textSize="16sp" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/sep_replay_clear_bottom"
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <!-- 清空预警历史记录 -->
+                <LinearLayout
+                    android:id="@+id/row_clear"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/history_clear_settings"
+                        android:textColor="@color/alert_red"
+                        android:textSize="16sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ===================== 关于 ===================== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/more_section_about"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="13sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card">
+
+                <!-- 源码许可（双许可说明） -->
+                <LinearLayout
+                    android:id="@+id/row_license"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/about_license_title"
+                        android:textColor="@color/ios_label"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:text="@string/about_license_summary"
+                        android:textColor="@color/ios_label_secondary"
+                        android:textSize="12sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/ios_label_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <!-- 查看崩溃日志 -->
+                <LinearLayout
+                    android:id="@+id/row_crash_log"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/about_crash_log_title"
+                        android:textColor="@color/ios_label"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:text="@string/about_crash_log_hint"
+                        android:textColor="@color/ios_label_secondary"
+                        android:textSize="12sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/ios_label_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <!-- 免责声明与用户协议 -->
+                <LinearLayout
+                    android:id="@+id/row_disclaimer"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/btn_disclaimer"
+                        android:textColor="@color/ios_label"
+                        android:textSize="16sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/ios_label_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1px"
+                    android:background="@color/ios_separator" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp">
+
+                    <TextView
+                        android:id="@+id/tv_about_version"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:textColor="@color/ios_label_secondary"
+                        android:textSize="15sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 底部悬浮提示（BeeCLD 连接成功时浮现后隐去） -->
+    <TextView
+        android:id="@+id/float_tip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="28dp"
+        android:background="@drawable/bg_float_tip"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="12dp"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:alpha="0"
+        android:visibility="gone" />
+</FrameLayout>

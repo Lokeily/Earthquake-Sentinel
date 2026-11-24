@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  窗口背景（v1.4.8 Liquid Glass）：底色 + 顶部环境光斑。
+  同时作为冷启动首帧背景：应用一打开就是带光斑的成色底，
+  玻璃卡片半透明地"浮"在这个环境光上，形成半透明层次。
+  浅色为柔和白光，深色为极淡的冷蓝光（OLED 低功耗）。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <color android:color="@color/ios_grouped_bg" />
+    </item>
+    <item
+        android:width="680dp"
+        android:height="380dp"
+        android:gravity="top|center_horizontal">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="340dp"
+                android:centerX="0.5"
+                android:centerY="0.5"
+                android:startColor="@color/glow_top"
+                android:endColor="@color/transparent" />
+        </shape>
+    </item>
+</layer-list>

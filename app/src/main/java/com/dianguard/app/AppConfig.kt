@@ -7,10 +7,15 @@ import android.content.SharedPreferences
  * 全局配置：参考位置、触发阈值、远震提醒开关等。
  * 通过 SharedPreferences 持久化，首页与后台服务共享同一份实例。
  *
- * 阈值模型（v1.0.9 起）：
- *  - 仅保留「烈度阈值」一项：预估烈度达到该值（含）即触发全屏倒计时告警；
- *  - 烈度档位：2°=轻微有感（推荐/默认），3°=明显有感，4°=强烈有感；
- *  - 去掉了原来的“震级阈值”，避免普通用户不会设置而漏报。
+ * 阈值模型（v1.4.x 起，基于 ICL 烈度阈值策略，不启用震级触发条件）：
+ *  - 仅以「用户所在地烈度（由距震中距离计算）」作为唯一触发条件；
+ *  - 烈度阈值分昼夜：白天（6:00–22:00）/ 夜间（22:00–次日6:00）；
+ *  - 参考 ICL 官方口径（365icl.com 科普页 + 微博 2020-02-17）：
+ *      · 推荐烈度阈值：白天 2 度，夜间 3 度；
+ *      · 不启用震级触发条件（与 ICL 官方策略的唯一差异——Dianguard 只做
+ *        用户所在地烈度触发，不依赖全国网震级，避免大震远距被震级门槛挡掉）。
+ *  - 历史版本包含「震级+烈度双阈值」（v1.4.0 过渡版）或「仅烈度单阈值」
+ *    （v1.0.9–v1.3.x），升级时自动迁移旧值。
  *
  * 参考位置（家庭/当前位置）：
  *  - 由用户在设置页点击“获取当前位置”抓取设备 GPS/网络定位后写入；
@@ -26,7 +31,22 @@ object AppConfig {
     // 会导致针对普洱的误报或对真实震中距的错误估算。未设置位置时
     // 由调用方以 AppConfig.hasLocation 判断，不触发全屏告警（见 EewAlertManager）。
 
-    const val DEFAULT_MIN_INTENSITY = 3.0        // 烈度阈值（默认+推荐 3°=明显有感；R5 修复：由 2° 上调，避免告警疲劳）
+    // ===== 烈度阈值（昼夜分设，基于 ICL 推荐值，不启用震级触发条件） =====
+    // 参考：https://www.365icl.com/View.asp?Pid=307（科普页）
+    //       微博 @成都高新减灾研究所 2020-02-17（官方说明）
+    // 说明：Dianguard 仅以「用户所在地烈度（由距震中距离计算）」作为唯一触发条件，
+    //       不启用震级阈值。这是与 ICL 官方双阈值策略的唯一差异——纯烈度触发
+    //       避免大震远距被震级门槛挡掉，保护远距离用户。
+    const val DEFAULT_MIN_INTENSITY_DAY = 2.0    // 白天烈度阈值（ICL 推荐 2 度）
+    const val DEFAULT_MIN_INTENSITY_NIGHT = 3.0  // 夜间烈度阈值（ICL 推荐 3 度）
+    /** 白天起始小时（含）：6:00–22:00 为白天（与 Eew.kt ICL_DAY_START_HOUR 一致） */
+    const val DAY_START_HOUR = ICL_DAY_START_HOUR
+    /** 白天结束前小时（不含）：22:00–次日6:00 为夜间（与 Eew.kt ICL_NIGHT_START_HOUR 一致） */
+    const val NIGHT_START_HOUR = ICL_NIGHT_START_HOUR
+
+    // 旧版单烈度阈值默认值（v1.3.x 及以前，含 v1.4.0 过渡版双阈值），用于升级迁移
+    const val DEFAULT_MIN_INTENSITY_LEGACY = 3.0
+
     const val DEFAULT_LOCATION_NAME = ""         // 当前定位的中文详细地址
 
     // 震前预警数据源：以下接口均已迁移到 AppConfig 外的 EEW_SOURCES 列表（多源订阅）。
@@ -36,6 +56,9 @@ object AppConfig {
 
     // S 波传播速度（km/s），用于估算 S 波到达倒计时
     const val S_WAVE_SPEED_KM_S = 3.5
+
+    /** 协议版本号：重大更新（如新增《用户服务协议》）时递增，低于此版本的用户会被要求重新阅读并同意 */
+    const val DISCLAIMER_VERSION = 2
 
     // 后台服务周期性刷新参考位置的间隔（毫秒）
     const val LOCATION_REFRESH_INTERVAL_MS = 10 * 60 * 1000L
@@ -51,7 +74,37 @@ object AppConfig {
 
     fun init(context: Context) {
         sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        migrateLegacyThresholdOnce()
         migrateThemeToDarkOnce()
+    }
+
+    /**
+     * 一次性迁移（v1.4.x 起）：兼容两代旧格式——
+     *  v1.4.0 过渡版：含 min_magnitude + min_intensity_day/night（双阈值）；
+     *  v1.3.x 及以前：仅 min_intensity（单烈度阈值）。
+     * 迁移目标（v1.4.1 起）：仅保留烈度双阈值，震级阈值不再参与触发。
+     *  - 已有 min_intensity_day/night → 保留用户设置；
+     *  - 仅 min_intensity → 用旧值回填白天/夜间烈度；
+     *  - min_magnitude 键不再读取（无触发器引用，残留无害，抹除避免混淆）。
+     * 迁移完成后写入标记，避免反复迁移覆盖用户后续的新设置。
+     */
+    private fun migrateLegacyThresholdOnce() {
+        synchronized(spLock) {
+            if (sp.getBoolean("threshold_migrated_v141", false)) return
+            val hasNewDay = sp.contains("min_intensity_day")
+            val hasNewNight = sp.contains("min_intensity_night")
+            val hasLegacy = sp.contains("min_intensity")
+            if (!hasNewDay && !hasNewNight && hasLegacy) {
+                val legacy = sp.getFloat("min_intensity", DEFAULT_MIN_INTENSITY_LEGACY.toFloat()).toDouble()
+                sp.edit()
+                    .putFloat("min_intensity_day", legacy.toFloat())
+                    .putFloat("min_intensity_night", legacy.toFloat())
+                    .apply()
+            }
+            // 清除过渡版震级阈值残留（v1.4.0 曾写入）
+            sp.edit().remove("min_magnitude").apply()
+            sp.edit().putBoolean("threshold_migrated_v141", true).apply()
+        }
     }
 
     /**
@@ -69,12 +122,63 @@ object AppConfig {
         }
     }
 
+    // ===================== 演练参考位置覆盖（v1.4.6，仅 debug 演练包） =====================
+    // 演示机常在虚拟机/实验环境，GPS 拿到的是假位置，无法用于演练。
+    // 这里在【配置存取层】加一层覆盖：debug 包手动输入或后台下发坐标后，
+    // homeLat / homeLon / hasLocation / locationName 全部优先返回演练坐标，
+    // 因此距离、烈度、S 波倒计时、方位等所有调用点无需任何修改即自动生效；
+    // 自动定位仍可照常写入 SharedPreferences，但读取时被覆盖，不会污染演练。
+    var drillLocationOverride: Boolean
+        get() = synchronized(spLock) { sp.getBoolean("drill_loc_override", false) }
+        set(v) = synchronized(spLock) { sp.edit().putBoolean("drill_loc_override", v).apply() }
+
+    /** 演练参考位置（String 存储，避免 Float 精度损失） */
+    var drillOverrideLat: Double
+        get() = synchronized(spLock) { sp.getString("drill_lat_str", null)?.toDoubleOrNull() ?: 0.0 }
+        set(v) = synchronized(spLock) { sp.edit().putString("drill_lat_str", v.toString()).apply() }
+
+    var drillOverrideLon: Double
+        get() = synchronized(spLock) { sp.getString("drill_lon_str", null)?.toDoubleOrNull() ?: 0.0 }
+        set(v) = synchronized(spLock) { sp.edit().putString("drill_lon_str", v.toString()).apply() }
+
+    /** 位置来源：manual（手机手动输入）/ console（后台下发）/ gps */
+    var drillLocationSource: String
+        get() = synchronized(spLock) { sp.getString("drill_loc_source", "gps") ?: "gps" }
+        set(v) = synchronized(spLock) { sp.edit().putString("drill_loc_source", v).apply() }
+
+    /** 参考位置展示名（后台下发时带地名） */
+    var drillLocationLabel: String
+        get() = synchronized(spLock) { sp.getString("drill_loc_label", "演练参考位置") ?: "演练参考位置" }
+        set(v) = synchronized(spLock) { sp.edit().putString("drill_loc_label", v).apply() }
+
+    /** 覆盖是否生效：仅 debug + 显式开关 + 坐标合法（Java 监视器可重入，嵌套 synchronized 安全） */
+    val drillLocationActive: Boolean
+        get() = BuildConfig.IS_DEBUG && drillLocationOverride &&
+            drillOverrideLat in -90.0..90.0 && drillOverrideLon in -180.0..180.0 &&
+            (drillOverrideLat != 0.0 || drillOverrideLon != 0.0)
+
+    /** 后台控制帧或手机手动输入的统一写入口，写完广播供设置页刷新 */
+    fun setDrillLocation(lat: Double, lon: Double, source: String, label: String = "演练参考位置") {
+        if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return
+        synchronized(spLock) {
+            sp.edit()
+                .putString("drill_lat_str", lat.toString())
+                .putString("drill_lon_str", lon.toString())
+                .putBoolean("drill_loc_override", true)
+                .putString("drill_loc_source", source)
+                .putString("drill_loc_label", label)
+                .apply()
+        }
+        AppEvents.postDrillLocation(lat, lon, source, label)
+    }
+
     // 修复 #16：经纬度改用 String 存储，彻底消除 Double↔Float 精度损失。
     // 同时兼容旧版 Float 存储：首次读取时若新 key 不存在则回退旧 Float 值，避免升级即丢坐标。
     // R5：不再提供兜底坐标——未设定位置时返回 0.0，调用方须以 hasLocation 判断是否可用。
     var homeLat: Double
         get() = synchronized(spLock) {
-            sp.getString("home_lat_str", null)?.toDoubleOrNull()
+            if (drillLocationActive) drillOverrideLat
+            else sp.getString("home_lat_str", null)?.toDoubleOrNull()
                 ?: sp.getFloat("home_lat", 0f).toDouble()
         }
         set(v) = synchronized(spLock) {
@@ -83,33 +187,74 @@ object AppConfig {
 
     var homeLon: Double
         get() = synchronized(spLock) {
-            sp.getString("home_lon_str", null)?.toDoubleOrNull()
+            if (drillLocationActive) drillOverrideLon
+            else sp.getString("home_lon_str", null)?.toDoubleOrNull()
                 ?: sp.getFloat("home_lon", 0f).toDouble()
         }
         set(v) = synchronized(spLock) {
             sp.edit().putString("home_lon_str", v.toString()).apply()
         }
 
-    /** 用户是否已通过“获取当前位置”写入过有效参考坐标 */
+    /** 用户是否已通过“获取当前位置”写入过有效参考坐标；演练覆盖启用时恒为 true */
     var hasLocation: Boolean
-        get() = synchronized(spLock) { sp.getBoolean("has_location", false) }
+        get() = synchronized(spLock) {
+            if (drillLocationActive) true else sp.getBoolean("has_location", false)
+        }
         set(v) = synchronized(spLock) { sp.edit().putBoolean("has_location", v).apply() }
 
     /** 当前定位的中文详细地址（只读展示，由“获取当前位置”写入） */
     var locationName: String
-        get() = synchronized(spLock) { sp.getString("location_name", DEFAULT_LOCATION_NAME) ?: DEFAULT_LOCATION_NAME }
+        get() = synchronized(spLock) {
+            if (drillLocationActive) drillLocationLabel
+            else sp.getString("location_name", DEFAULT_LOCATION_NAME) ?: DEFAULT_LOCATION_NAME
+        }
         set(v) = synchronized(spLock) { sp.edit().putString("location_name", v.trim()).apply() }
 
     /**
-     * 烈度阈值：用户所在地预估烈度达到此值（含）才触发全屏告警。
-     * 机制：EewAlertManager 收到报文后用 estimateSiteIntensity(震级, 震中距, 深度)
-     * 估算本地烈度（地震烈度与震级、震源深度、离震中距离相关），再与本阈值比较。
-     * 可选 3°(明显有感,推荐/默认) / 2°(轻微有感,高级·易频繁打扰) / 4°(强烈有感)。
-     * 注：R5 起默认 3°——2° 虽更灵敏，但全国轻微有感地震频率高，默认 2° 会频繁全屏
-     * 打扰用户，长期诱发“告警疲劳”（狼来了效应），反而削弱真实强震时的响应意愿。
+     * 白天烈度阈值（6:00–22:00）：用户所在地预估烈度达到此值（含）才可能触发全屏告警。
+     * ICL 推荐白天 2 度。可选档位：2/3/4。
      */
+    var minIntensityDay: Double
+        get() = synchronized(spLock) { sp.getFloat("min_intensity_day", DEFAULT_MIN_INTENSITY_DAY.toFloat()).toDouble() }
+        set(v) = synchronized(spLock) { sp.edit().putFloat("min_intensity_day", v.toFloat()).apply() }
+
+    /**
+     * 夜间烈度阈值（22:00–次日6:00）：用户所在地预估烈度达到此值（含）才可能触发全屏告警。
+     * ICL 推荐夜间 3 度。可选档位：2/3/4。
+     */
+    var minIntensityNight: Double
+        get() = synchronized(spLock) { sp.getFloat("min_intensity_night", DEFAULT_MIN_INTENSITY_NIGHT.toFloat()).toDouble() }
+        set(v) = synchronized(spLock) { sp.edit().putFloat("min_intensity_night", v.toFloat()).apply() }
+
+    /**
+     * 按当前时段返回烈度阈值（白天/夜间）。
+     * 白天 6:00–22:00（含），夜间 22:00–次日6:00。
+     * 委托 Eew.kt 顶层纯函数 iclIntensityThreshold（单一事实来源，可单元测试）。
+     */
+    fun currentMinIntensity(): Double {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return iclIntensityThreshold(hour, minIntensityDay, minIntensityNight)
+    }
+
+    /**
+     * 纯烈度触发判定：用户所在地预估烈度 ≥ 当前时段阈值（白天/夜间）。
+     * 不启用震级触发条件（与 ICL 官方双阈值策略的唯一差异，见类头注释）。
+     * 委托 Eew.kt 顶层纯函数 iclIntensityTriggered（单一事实来源，可单元测试）。
+     * @param siteIntensity 用户所在地预估烈度（由距震中距离计算）
+     * @return true=应触发全屏倒计时
+     */
+    fun alertTriggered(siteIntensity: Double): Boolean {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return iclIntensityTriggered(siteIntensity, hour, minIntensityDay, minIntensityNight)
+    }
+
+    /**
+     * @deprecated v1.4.x 起改用 minIntensityDay/minIntensityNight + currentMinIntensity()。
+     * 保留此属性仅为兼容旧版调用方（如设置页回显），新代码请勿使用。
+     */
+    @Deprecated("use currentMinIntensity() instead")
     var minIntensity: Double
-        get() = synchronized(spLock) { sp.getFloat("min_intensity", DEFAULT_MIN_INTENSITY.toFloat()).toDouble() }
+        get() = currentMinIntensity()
         set(v) = synchronized(spLock) { sp.edit().putFloat("min_intensity", v.toFloat()).apply() }
 
     var serviceEnabled: Boolean
@@ -177,6 +322,15 @@ object AppConfig {
         set(v) = synchronized(spLock) { sp.edit().putString("quake_history_v1", v).apply() }
 
     /**
+     * 预警回放历史记录（测试版专用，v1.4.0）：JSON 数组字符串，由 ReplayHistory 读写。
+     * 独立于 quake_history_v1（7天/100条），回放数据保留 365 天 / 500 条，
+     * 供「预警回放」页面浏览并完整重现历史预警流程。
+     */
+    var replayHistoryJson: String
+        get() = synchronized(spLock) { sp.getString("replay_history_v1", "[]") ?: "[]" }
+        set(v) = synchronized(spLock) { sp.edit().putString("replay_history_v1", v).apply() }
+
+    /**
      * 融合引擎校准画像持久化（FusionCalibration）：JSON 数组字符串。
      * 仅在「在线学习」开启时才会被写入；默认关闭状态下引擎只做纯查表修正，此值恒为 "[]"。
      */
@@ -203,6 +357,11 @@ object AppConfig {
     var disclaimerAccepted: Boolean
         get() = synchronized(spLock) { sp.getBoolean("disclaimer_accepted", false) }
         set(v) = synchronized(spLock) { sp.edit().putBoolean("disclaimer_accepted", v).apply() }
+
+    /** 用户已同意的协议版本号；低于 DISCLAIMER_VERSION 时需重新阅读并同意（协议重大更新） */
+    var disclaimerAcceptedVersion: Int
+        get() = synchronized(spLock) { sp.getInt("disclaimer_version", 0) }
+        set(v) = synchronized(spLock) { sp.edit().putInt("disclaimer_version", v).apply() }
 
     /**
      * BeeCLD 用户自注册源（v1.3.x 新增，可选）：
@@ -233,6 +392,35 @@ object AppConfig {
         return "wss://api.2v8.cn/ws/cea?token=${t.trim()}"
     }
 
+    // ===================== 演练控制台（v1.4.5 起，仅 debug 演练包可用） =====================
+    // 配套 Sentinel Console 后台：演示机在「更多设置 → 演练控制台」填入后台生成的
+    // ws://<局域网IP>:8787/ws/cea?token=...&device=... 接入地址后，以独立 sourceId
+    // "drill" 订阅该通道。后台只向白名单设备下发带 drill 标记的报文，release 正式包
+    // 不含此源、不开放明文流量，因此普通用户没有任何途径收到演练数据。
+    /** 演练通道完整 WebSocket 地址（由后台「接入地址」复制而来，不做任何默认主机拼接） */
+    var drillEndpoint: String
+        get() = synchronized(spLock) { sp.getString("drill_endpoint", "") ?: "" }
+        set(v) = synchronized(spLock) { sp.edit().putString("drill_endpoint", v.trim()).apply() }
+
+    /** 演练通道是否启用（默认关闭；关闭时不发起任何连接） */
+    var drillEnabled: Boolean
+        get() = synchronized(spLock) { sp.getBoolean("drill_enabled", false) }
+        set(v) = synchronized(spLock) { sp.edit().putBoolean("drill_enabled", v).apply() }
+
+    /**
+     * 计算演练通道地址。三重保险：
+     *  ① 仅 debug 构建返回非空（release 包编译期常量为 false，代码路径被裁剪）；
+     *  ② 必须用户显式启用；
+     *  ③ 必须是完整 ws:// / wss:// 地址，杜绝误填 token 被拼到公网主机。
+     */
+    fun drillWsUrl(): String {
+        if (!BuildConfig.IS_DEBUG || !drillEnabled) return ""
+        val url = drillEndpoint
+        if (!url.startsWith("ws://", ignoreCase = true) &&
+            !url.startsWith("wss://", ignoreCase = true)) return ""
+        return url
+    }
+
     /** 把 S 波到达时间估算为倒计时秒数：**空间震源距** / 波速（含深度修正） */
     fun estimateSWaveEtaSeconds(distanceKm: Double, depthKm: Double = 0.0): Double {
         val spatialDist = if (depthKm > 1.0) {
@@ -254,7 +442,14 @@ data class EewSource(
     val id: String,
     val name: String,
     val wsUrl: String,
-    val headers: Map<String, String> = emptyMap()
+    val headers: Map<String, String> = emptyMap(),
+    /**
+     * 是否为官方直接渠道（v1.4.3）。
+     * - true：官方机构自有域名/直连（如 ICL 减灾所官方预警网）。
+     * - false：第三方转发官方数据（如 wolfx 镜像 cenc/sc/cq/cwa）或用户自建源（beecld）。
+     * 主页据此给官方源打「官方」标签；转发源异常时若官方源仍可用，显示安抚文案而非惊悚的「源异常」。
+     */
+    val isOfficial: Boolean = false
 )
 
 /**
@@ -268,7 +463,8 @@ val SOURCE_DISPLAY_NAMES: Map<String, String> = mapOf(
     "cq" to "重庆市地震局 (CQ)",
     "cwa" to "中国台湾地震测报中心 (CWA)",
     "icl" to "中国地震预警网 (ICL)",
-    "beecld" to "BeeCLD 地震预警 (用户源)"
+    "beecld" to "BeeCLD 地震预警 (用户源)",
+    "drill" to "Sentinel 演练控制台 (模拟)"
 )
 
 /**
@@ -311,10 +507,15 @@ val EEW_SOURCES: List<EewSource> = listOf(
     EewSource("cq", "重庆市地震局 (CQ)", "wss://ws-api.wolfx.jp/cq_eew"),
     // 中国台湾地震测报中心 (CWA)：邻近区域实时源，影响中国东南沿海，参与本地告警判定
     EewSource("cwa", "中国台湾地震测报中心 (CWA)", "wss://ws-api.wolfx.jp/cwa_eew"),
-    // ICL（减灾所官方）HTTP 轮询源；wsUrl 留空 = 非 WebSocket 源，由 IclPoller 维护连通性
-    EewSource("icl", "中国地震预警网 (ICL)", ""),
+    // ICL（减灾所官方）HTTP 轮询源：官方预警发布机构直连域名，isOfficial=true；wsUrl 留空 = 非 WebSocket 源，由 IclPoller 维护连通性
+    EewSource("icl", "中国地震预警网 (ICL)", "", isOfficial = true),
     // BeeCLD·2v8（用户自注册可选源）：wsUrl 留空 = 动态源；仅在用户于设置页填好 token 并启用后，
     // 由 EewConnectionManager 按 AppConfig.beecldWsUrl() 动态起连（wss://api.2v8.cn/ws/cea?token=...）。
     // 数据节点 api.2v8.cn 未在 HttpClient 证书固定表中，连接时走系统信任链，证书固定逃生舱不对其计数。
-    EewSource("beecld", "BeeCLD 地震预警 (用户源)", "")
-)
+    EewSource("beecld", "BeeCLD 地震预警 (用户源)", ""),
+    // 演练控制台（v1.4.5）：仅 debug 演练包可见的动态源，wsUrl 留空由 EewConnectionManager
+    // 按 AppConfig.drillWsUrl() 起连。release 正式包完全不含此条目（编译期常量裁剪），
+    // 因而正式用户的主页、源状态、告警链路都不存在演练通道。
+) + if (BuildConfig.IS_DEBUG) listOf(
+    EewSource("drill", "Sentinel 演练控制台 (模拟)", "")
+) else emptyList()

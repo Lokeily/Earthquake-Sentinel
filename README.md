@@ -4,7 +4,7 @@
 
 **官方源直连地震预警 —— 让一台闲置手机成为守护家人的秒级预警哨兵**
 
-[![Version](https://img.shields.io/badge/version-v1.4.3-2f81f7)](https://github.com/Lokeily/Earthquake-Sentinel/releases)
+[![Version](https://img.shields.io/badge/version-v1.4.10-2f81f7)](https://github.com/Lokeily/Earthquake-Sentinel/releases)
 [![Platform](https://img.shields.io/badge/platform-Android%205.0%2B-3ddc84)](#8-构建与测试)
 [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-7f52ff)](https://kotlinlang.org)
 [![Tests](https://img.shields.io/badge/tests-84%20passed-2ea043)](#82-测试)
@@ -13,6 +13,16 @@
 [官网](https://lokeily.github.io/dianguard-site/) · [下载最新版](https://github.com/Lokeily/Earthquake-Sentinel/releases) · [更新日志](https://github.com/Lokeily/Earthquake-Sentinel/releases)
 
 </div>
+
+---
+
+## ⚠️ 维护状态公告（重要）
+
+> **国家可能即将上线小区广播（Cell Broadcast）级别的官方地震预警系统。** 该通道由运营商在系统层直接向手机推送预警，不依赖任何第三方应用。为避免与国家级预警体系重复建设，**本项目及其所有已发布版本自 v1.4.10 起停止功能更新**——v1.4.10 即为最后一个功能版本。
+>
+> **请用户知悉**：随着官方小区广播渠道的推进，本应用依赖的各数据源接口随时可能调整或关停，**届时应用可能出现无法使用的情况**。
+>
+> **若遇到无法使用的情况，请通过邮件反馈至 [lokeijmfk@163.com](mailto:lokeijmfk@163.com)**。收到反馈后我会及时维护相应数据通道，尽力保证应用持续可用。
 
 ---
 
@@ -125,10 +135,14 @@ Dianguard 采用"**多路实时源 → 事件归并 → 分区烈度衰减 → �
 | **CENC** | 中国地震台网 | WebSocket 推送 | 转发 | 全国主源 |
 | **SC** | 四川省地震局 | WebSocket 推送 | 转发 | 西南地区互证 |
 | **CQ** | 重庆市地震局 | WebSocket 推送 | 转发 | 西南地区互证 |
+| **FJ** | 福建省地震局 | WebSocket 推送 | 转发 | 东南沿海互证（v1.2.5 后台新增） |
+| **JMA** | 日本气象厅 | WebSocket 推送 | 转发 | 全球最成熟预警系统，覆盖跨境/海域震感（后台） |
+| **P2P** | P2P 地震情報（日本） | HTTP 3s 轮询 | 转发 | JMA 冗余源，解析层仅收「緊急地震速報」震时速报（后台） |
 | **CWA** | 中国台湾地震测报中心 | WebSocket 推送 | 转发 | 覆盖台湾海峡震源，补足东南沿海离岸地震的延迟与欠报 |
-| BeeCLD | 用户自注册（可选） | WebSocket | 用户自备 Key | App **不内置密钥**，需用户自行注册填写 |
+| BeeCLD | 用户自注册（可选） | WebSocket | 用户自备 Key | App **不内置密钥**，需用户自行注册填写；`/ws/cea` 即中国地震预警网通道 |
+| BeeCLD-ALL | 用户自注册（可选） | WebSocket | 用户自备 Key | 聚合容灾通道（含预警网/台湾/日本/全球），主通道故障时的第二路（后台） |
 
-> ⚠️ **单点风险与自动降级**：CENC/SC/CQ/CWA 四路均经 Wolfx 镜像分发、共用 `ws-api.wolfx.jp` 网关。该网关故障（如 503）时：
+> ⚠️ **单点风险与自动降级**：CENC/SC/CQ/FJ/CWA 五路均经 Wolfx 镜像分发、共用 `ws-api.wolfx.jp` 网关。该网关故障（如 503）时：
 > ① 每路自动启用**同机构 HTTP 降级轮询**（4s，实测可用），主页显示「HTTP降级·接收中」而非惊悚的「源异常」；
 > ② ICL 官方源（独立域名）始终并行运行，预警不中断；
 > ③ 全部失效时 30s 后启用备用探测源。三层递进，官方直连源始终可用。
@@ -285,6 +299,19 @@ I = A + B·M + C·lg(R + R₀) + 0.5σ
 - 签名密码支持环境变量注入（`DIANGUARD_STORE_PASSWORD` 等），CI / 发布时无需落盘明文
 - App **不内置任何第三方 API 密钥**；可选源的 Key 由用户自行注册填写，仅存本机
 
+### 6.5 版本区分（debug 演练包 vs release 公开包）
+
+| 能力 | debug 演练包（内部分发） | release 公开包（对外分发） |
+|------|------|------|
+| 演练控制台入口（更多设置内） | ✅ 有 | ❌ 源码层不存在（`BuildConfig.IS_DEBUG` 裁剪） |
+| 明文流量（局域网演练 WS） | ✅ 允许（`allow_cleartext_traffic` debug=true） | ❌ 永不开放 |
+| 手动 / 后台下发定位（演练覆盖层） | ✅ 有 | ❌ 不存在 |
+| BeeCLD 等真实源 Key | 由后台中转，App 不填 Key | 用户自行申请填写（永不内置） |
+| 时钟校准（serverTime） | ✅ 生效 | ✅ 真实源无此字段，行为不变 |
+| 告警链路 / 烈度模型 / 官方源 | ✅ 完整 | ✅ 完整（与演练完全无关） |
+
+一句话：**凡是能收到演练数据的代码，只存在于 debug 包**；release 从源头上不含演练源、不装配任何密钥。公开分发的包永远是 release。
+
 ---
 
 ## 7. 隐私与权限
@@ -392,6 +419,13 @@ I = A + B·M + C·lg(R + R₀) + 0.5σ
 
 | 版本 | 主要内容 |
 |------|---------|
+| **v1.4.10** | **服务器时钟校准**：演练/后台中转帧携带 serverTime，倒计时改用服务端时间轴计算——手机时钟漂移不再造成大屏与手机倒计时不同值；官方真实源不受影响 |
+| **v1.4.9** | 页面背景统一接入环境光背景（玻璃卡片透光生效）；API 31+ SplashScreen 底色统一（移除浅底不可见的白色图标）；导航栏配色统一 |
+| **v1.4.8** | **Liquid Glass 视觉统一**：玻璃卡片（微渐变+顶部高光+细描边）22 处引用全局生效；动效时长 token（160/240/320ms）统一全部动画；按钮涟漪化；Tab 触觉反馈 |
+| **v1.4.7** | **真实预警经后台中转**（正常模式新鲜事件含修正报全量中转给白名单演示机）；演练标记以 eventId 前缀为准（DRILL- 标演练、LIVE- 不标）；**密钥边界**：BeeCLD Key 仅存后台，公开 release 包不装配任何密钥 |
+| **v1.4.6** | 演练定位双向同步：手动输入/后台下发经纬度（演练覆盖层，GPS 不污染），手机状态心跳回传；演练区块配套接入指引与状态同步 |
+| **v1.4.5** | **Sentinel Console 演练控制台**（仅 debug 包）：白名单隔离、DRILL- 标记、彩排注入、明文流量仅演练包开放；正式 release 不含演练源 |
+| **v1.4.4** | **事后警报抑制**（发震>3min 且 S 波已过用户所在地不再全屏，保留远距真倒计时）；备用源烈度口径统一为「用户所在地烈度」；ICL 轮询研判移出主线程（防活跃期 ANR）；`isLateAlert` 纯函数 + 5 项回归用例 |
 | **v1.4.3** | **移除融合引擎，先到先发**；ICL 官方 1s 增量轮询（近推送延迟）；接入 CENC 官方目录（回放/历史权威源）；Wolfx WS 故障自动 HTTP 同机构降级；告警页对齐 ICL（等级横幅 + 倒计时提示横幅 + 分级避险指引）；官方/转发分层状态显示；Android 15+ 前台服务超时续期；服务僵尸态防护与前台自愈 |
 | v1.3.2 | 融合引擎 v2.4 完整版搭载；内存泄漏修复 |
 | v1.3.1 | 预警等级对齐中国地震局官方标准（按本地预估烈度） |

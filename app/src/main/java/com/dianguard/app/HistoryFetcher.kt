@@ -3,7 +3,6 @@ package com.dianguard.app
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
@@ -11,7 +10,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.concurrent.TimeUnit
 
 /**
  * 地震历史记录抓取。
@@ -48,12 +46,8 @@ object HistoryFetcher {
     }
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    /** 专用短超时客户端（与全局客户端共用同一套证书固定规则，防中间人注入虚假历史目录） */
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(6, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .certificatePinner(HttpClient.buildCertificatePinner())
-        .build()
+    // 复用全局共享客户端：与主链路共用连接池，证书固定降级后自动生效
+    private val httpClient get() = HttpClient.instance
 
     private val zhFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("Asia/Shanghai")
@@ -65,8 +59,16 @@ object HistoryFetcher {
     fun fetchAndRecord(callback: (addedCount: Int) -> Unit) {
         executor.execute {
             val batch = mutableListOf<QuakeRecord>()
-            try { batch += fetchCencEqlist() }
-            catch (e: Exception) { Log.w(TAG, "CENC目录: ${e.message}") }
+            // v1.4.3：CENC 官方目录优先（权威官方源）；仅保留 7 天窗口（QuakeHistory 保留期）
+            var officialIds = setOf<String>()
+            try {
+                val official = CencOfficial.fetchCatalog(QuakeHistory.KEEP_MS)
+                officialIds = official.ids
+                batch += official.records
+                Log.i(TAG, "CENC官方目录: ${official.records.size} 条")
+            } catch (e: Exception) { Log.w(TAG, "CENC官方目录: ${e.message}") }
+            try { batch += fetchCencEqlist(officialIds) }
+            catch (e: Exception) { Log.w(TAG, "CENC镜像: ${e.message}") }
             if (batch.isEmpty()) {
                 // 主源无数据时尝试 USGS 兜底
                 try { batch += fetchUsgsChina() }
@@ -86,7 +88,7 @@ object HistoryFetcher {
 
     // ===================== 中国地震台网速报目录 =====================
 
-    private fun fetchCencEqlist(): List<QuakeRecord> {
+    private fun fetchCencEqlist(skipOfficialIds: Set<String> = emptySet()): List<QuakeRecord> {
         val body = httpGet(CENC_EQLIST) ?: return emptyList()
         val root = try { JSONObject(body) } catch (_: Exception) { return emptyList() }
 
@@ -96,6 +98,8 @@ object HistoryFetcher {
             val obj = root.optJSONObject(k) ?: continue
             val eventId = obj.optString("EventID", "")
             if (eventId.isBlank()) continue
+            // 官方 CENC 目录已覆盖该事件 → 跳过镜像重复条目（官方优先）
+            if (eventId in skipOfficialIds) continue
             val magStr = obj.optString("magnitude", "")
             val mag = magStr.toDoubleOrNull() ?: continue
             if (mag <= 0) continue
@@ -129,11 +133,15 @@ object HistoryFetcher {
                 depthKm = depthKm,
                 intensity = intensity,
                 distanceKm = distKm,
-                etaSec = if (distKm > 0) AppConfig.estimateSWaveEtaSeconds(distKm) else 0.0,
+                etaSec = if (distKm > 0) AppConfig.estimateSWaveEtaSeconds(distKm, depthKm) else 0.0,
                 sourceName = "中国地震台网速报",
                 reportNum = 1,
                 triggered = false,
-                backup = true
+                backup = true,
+                epiLat = lat,
+                epiLon = lon,
+                eventId = eventId,
+                sourceId = "cenc_catalog"
             ))
         }
         return out
@@ -161,7 +169,7 @@ object HistoryFetcher {
             append("&minlongitude=73&maxlongitude=135")
             append("&minmagnitude=2.0")
             append("&limit=").append(LIMIT)
-            append("&orderby=time")
+            append("&orderby=time-desc")
         }
 
         val body = httpGet(url) ?: return emptyList()
@@ -212,11 +220,15 @@ object HistoryFetcher {
                     "约%.1f".format(estimateSiteIntensity(mag, distKm, depthKm))
                 else "约%.1f".format(estimateIntensityFromMagnitude(mag)),
                 distanceKm = distKm,
-                etaSec = AppConfig.estimateSWaveEtaSeconds(distKm),
+                etaSec = AppConfig.estimateSWaveEtaSeconds(distKm, depthKm),
                 sourceName = "USGS 地震目录",
                 reportNum = 1,
                 triggered = false,
-                backup = true
+                backup = true,
+                epiLat = lat,
+                epiLon = lon,
+                eventId = id,
+                sourceId = "usgs_catalog"
             ))
         }
         return out
@@ -232,7 +244,7 @@ object HistoryFetcher {
         val url = buildString {
             append(EMSC_QUERY)
             append("?format=json&limit=").append(LIMIT)
-            append("&orderby=time")
+            append("&orderby=time-desc")
             append("&minlatitude=18&maxlatitude=54")
             append("&minlongitude=73&maxlongitude=135")
             append("&minmag=2.0")
@@ -288,11 +300,15 @@ object HistoryFetcher {
                     "约%.1f".format(estimateSiteIntensity(mag, distKm, depthKm))
                 else "约%.1f".format(estimateIntensityFromMagnitude(mag)),
                 distanceKm = distKm,
-                etaSec = AppConfig.estimateSWaveEtaSeconds(distKm),
+                etaSec = AppConfig.estimateSWaveEtaSeconds(distKm, depthKm),
                 sourceName = "EMSC 地震目录",
                 reportNum = 1,
                 triggered = false,
-                backup = true
+                backup = true,
+                epiLat = lat,
+                epiLon = lon,
+                eventId = id,
+                sourceId = "emsc_catalog"
             ))
         }
         return out
@@ -323,7 +339,10 @@ object HistoryFetcher {
                     if (sb.isNotEmpty()) result = sb.toString()
                 }
             }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            // 接入证书固定降级逃生舱：bigdatacloud 证书轮换后可自动恢复逆地理编码
+            HttpClient.reportFailure(java.net.URL(GEO_API).host, e)
+        }
 
         if (result == null) result = GeoUtils.provinceOf(lat, lon)
 
@@ -345,7 +364,11 @@ object HistoryFetcher {
                 if (!resp.isSuccessful) { Log.w(TAG, "$url -> ${resp.code}"); return null }
                 resp.body?.string()
             }
-        } catch (e: Exception) { Log.w(TAG, "$url -> ${e.message}"); null }
+        } catch (e: Exception) {
+            // 接入证书固定降级逃生舱（与 ReplayFetcher 一致），官方轮换证书后可自愈
+            HttpClient.reportFailure(java.net.URL(url).host, e)
+            Log.w(TAG, "$url -> ${e.message}"); null
+        }
     }
 
     private fun isoUtc(epochMs: Long): String {

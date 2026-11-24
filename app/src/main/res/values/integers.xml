@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  动效时长 token（v1.4.8）：所有窗口/Fragment/列表动画统一引用，
+  保证全应用节奏一致 —— 快反馈 160ms、标准过渡 240ms、慢场景 320ms，
+  插值器统一 fast_out_slow_in（iOS 曲线）。
+-->
+<resources>
+    <integer name="anim_ms_fast">160</integer>
+    <integer name="anim_ms_normal">240</integer>
+    <integer name="anim_ms_slow">320</integer>
+</resources>

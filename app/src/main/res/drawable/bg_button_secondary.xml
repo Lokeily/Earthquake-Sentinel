@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 次要按钮：底色跟随卡片色，深色模式下自动变为近黑，不再硬编码白色 -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/ios_card_bg" />
-    <stroke android:width="1dp" android:color="@color/ios_separator" />
-    <corners android:radius="14dp" />
-</shape>
+<!-- 次要按钮（v1.4.8）：tinted 胶囊 + 统一按压涟漪 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#268E8E93">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ios_fill_secondary" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</ripple>

@@ -171,7 +171,7 @@ class BackupSource(
         // 时间过滤：拒绝超过 MAX_AGE_MS 的旧数据（与 USGS 分支保持一致）
         val originTime = obj.optString("OriginTime", "")
         if (originTime.isNotBlank()) {
-            val otMs = parseOriginTimeMs(originTime)
+            val otMs = parseTimeMs(originTime)
             if (otMs > 0L && System.currentTimeMillis() - otMs > MAX_AGE_MS) {
                 Log.i(TAG, "Wolfx HTTP 返回的事件已超过 ${MAX_AGE_MS / 60_000} 分钟，忽略: $originTime")
                 return false
@@ -199,39 +199,17 @@ class BackupSource(
 
     /**
      * 解析发震时间字符串为毫秒时间戳。
-     * 支持格式：ISO 8601（"2024-01-15T08:30:00+08:00"/"2024-01-15 08:30:00"/带毫秒等）。
-     * v1.1.1 修复：substringBefore("-") 会错误截断负时区偏移如 -05:00。
-     * 改为 regex 去毫秒 + 仅在 tzIdx>10（日期部分之后）时才截断时区后缀。
+     * v1.4.3 起统一委托 Eew.kt 顶层 parseOriginTimeMs（吸收 ISO/毫秒/时区偏移变体、
+     * 纯数字 epoch 秒/毫秒），删除本类重复实现，避免两处时间语义漂移。
      */
-    private fun parseOriginTimeMs(timeStr: String): Long {
-        return try {
-            val cleaned = timeStr.trim()
-                .replace("T", " ")
-                .replace("Z", "")
-                // 去除毫秒部分 ".123"
-                .replace(Regex("\\.\\d+"), "")
-                // 去除时区后缀 "+08:00" / "-05:00"，仅在日期部分之后截断
-                .let { s ->
-                    val tzIdx = s.indexOfFirst { it == '+' || it == '-' }
-                    if (tzIdx > 10) s.substring(0, tzIdx).trim() else s
-                }
-                .take(19) // "yyyy-MM-dd HH:mm:ss"
-            if (cleaned.length < 16) return 0L
-            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-            sdf.timeZone = TimeZone.getTimeZone("Asia/Shanghai")
-            sdf.parse(cleaned)?.time ?: 0L
-        } catch (_: Exception) {
-            Log.w(TAG, "无法解析发震时间: $timeStr")
-            0L
-        }
-    }
+    private fun parseTimeMs(timeStr: String): Long = parseOriginTimeMs(timeStr)
 
     /** 拉取 EMSC 欧洲地震中心目录（独立于 wolfx/USGS 的第三源）；返回命中的新事件数 */
     private fun pollEmsc(): Int {
         val start = System.currentTimeMillis() - MAX_AGE_MS
         val url = StringBuilder(EMSC_QUERY).apply {
             append("?format=json&limit=").append(LIMIT)
-            append("&orderby=time")
+            append("&orderby=time-desc")
             append("&minlatitude=18&maxlatitude=54")
             append("&minlongitude=73&maxlongitude=135")
             append("&minmag=2.5")

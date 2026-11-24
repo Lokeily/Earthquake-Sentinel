@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/ios_blue" />
-    <corners android:radius="14dp" />
-</shape>
+<!-- 主操作按钮（v1.4.8）：胶囊形 + 统一按压涟漪（ripple 自 API 21 全版本可用） -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#3DFFFFFF">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ios_blue" />
+            <corners android:radius="25dp" />
+        </shape>
+    </item>
+</ripple>

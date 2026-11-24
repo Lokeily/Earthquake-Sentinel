@@ -33,6 +33,8 @@
     <color name="ios_green">#30D158</color>
     <color name="source_gray">#48484D</color>
     <color name="source_orange">#FF9F0A</color>
+    <!-- 次级填充色（iOS 深色 secondarySystemFill） -->
+    <color name="ios_fill_secondary">#2C2C2E</color>
 
     <!-- 四级预警配色（深色底适配版） -->
     <color name="level_red">#FF453A</color>
@@ -41,11 +43,11 @@
     <color name="level_blue">#0A84FF</color>
 
     <!-- 兼容旧引用 -->
-    <color name="primary">#0A84FF</color>
-    <color name="primary_dark">#0A84FF</color>
-    <color name="accent">#0A84FF</color>
-    <color name="bg_dark">#000000</color>
-    <color name="card">#0E0E10</color>
-    <color name="text_primary">#E4E4E7</color>
-    <color name="text_secondary">#8A8A8F</color>
+
+    <!-- Liquid Glass 玻璃卡片（深色）：半透明黑玻璃透出环境光斑，不增加 OLED 发光面积 -->
+    <color name="glass_hi">#C61C1C22</color>
+    <color name="glass_lo">#8C101014</color>
+    <color name="glass_edge_top">#1FFFFFFF</color>
+    <color name="glass_stroke">#14FFFFFF</color>
+    <color name="glow_top">#12264FFF</color>
 </resources>

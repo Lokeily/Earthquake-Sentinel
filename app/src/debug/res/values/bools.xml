@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 仅 debug 演练包：允许明文 ws://，用于连接局域网内的 Sentinel Console 演练后台。
+         release 正式包使用 main 中的 false，不具备连入演练通道的能力。 -->
+    <bool name="allow_cleartext_traffic">true</bool>
+</resources>

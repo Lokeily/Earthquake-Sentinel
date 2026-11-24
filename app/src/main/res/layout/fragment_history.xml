@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ios_grouped_bg"
+    android:background="@drawable/bg_app_background"
     android:fillViewport="true"
     android:scrollbars="none">
 
@@ -20,6 +20,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
+            android:baselineAligned="false"
             android:paddingVertical="4dp">
 
             <TextView
@@ -28,7 +29,7 @@
                 android:layout_weight="1"
                 android:text="@string/history_title"
                 android:textColor="@color/ios_label"
-                android:textSize="22sp"
+                android:textSize="28sp"
                 android:textStyle="bold" />
 
             <TextView

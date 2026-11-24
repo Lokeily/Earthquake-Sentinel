@@ -31,6 +31,30 @@ class EewConnectionManager(val service: EewService) {
     val connections = LinkedHashMap<String, SourceConn>()
     val connectedSources = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private val maxReconnectDelayMs = 60_000L
+    private val drillStatusIntervalMs = 5_000L
+
+    /** 演练状态周期上报：让后台能持续看到演示机的参考位置、监听开关与告警状态 */
+    private val drillStatusRunnable = object : Runnable {
+        override fun run() {
+            if (destroyed) return
+            if (connectedSources.contains("drill")) sendDrillStatus()
+            service.mainHandler.postDelayed(this, drillStatusIntervalMs)
+        }
+    }
+
+    /** 供设置页在手动修改参考位置后立即上报一次，无需等 5 秒周期 */
+    fun reportDrillStatusNow() { sendDrillStatus() }
+
+    /** 立即上报一次设备状态（控制帧处理后 / 连接建立时调用） */
+    private fun sendDrillStatus() {
+        val c = connections["drill"] ?: return
+        try { c.ws?.send(DrillControl.buildStatusJson()) } catch (_: Exception) { }
+    }
+
+    private fun startDrillStatusLoop() {
+        service.mainHandler.removeCallbacks(drillStatusRunnable)
+        service.mainHandler.postDelayed(drillStatusRunnable, 2_000L)
+    }
 
     // 头条状态机变量
     @Volatile private var lastAnyConnectedMs = 0L
@@ -61,8 +85,10 @@ class EewConnectionManager(val service: EewService) {
             if (src.wsUrl.isBlank()) {
                 // 动态源（beecld）：仅在用户已启用且填好 token 时，按 AppConfig 动态 URL 起连；
                 // 否则跳过（与 ICL 的“非 WS 源由 IclPoller 维护”不同，beecld 是“可选 WS 源”）。
-                if (src.id == "beecld") {
-                    val url = AppConfig.beecldWsUrl()
+                if (src.id == "beecld" || src.id == "drill") {
+                    // 演练源与用户自注册源同为「空白 wsUrl 的动态源」，地址来自用户显式配置；
+                    // drill 在 release 包根本不在 EEW_SOURCES 中，且 drillWsUrl() 有 debug 守卫。
+                    val url = if (src.id == "drill") AppConfig.drillWsUrl() else AppConfig.beecldWsUrl()
                     if (url.isNotBlank()) {
                         val conn = SourceConn(src)
                         connections[src.id] = conn
@@ -80,6 +106,7 @@ class EewConnectionManager(val service: EewService) {
             conn.connect()
         }
         refreshHeadline()
+        startDrillStatusLoop()
     }
 
     /**
@@ -90,6 +117,7 @@ class EewConnectionManager(val service: EewService) {
         val src = EEW_SOURCES.firstOrNull { it.id == id } ?: return
         val url = when (id) {
             "beecld" -> AppConfig.beecldWsUrl()
+            "drill" -> AppConfig.drillWsUrl()
             else -> return
         }
         if (url.isBlank()) return
@@ -109,9 +137,8 @@ class EewConnectionManager(val service: EewService) {
         conn.cancelPending()
         try { conn.ws?.cancel() } catch (_: Exception) { }
         connections.remove(id)
-        connectedSources.remove(id)
-        EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
-        patchSourceState(id) { copy(connected = false, failCount = 0L) }
+            connectedSources.remove(id)
+            patchSourceState(id) { copy(connected = false, failCount = 0L) }
         refreshHeadline()
     }
 
@@ -147,6 +174,7 @@ class EewConnectionManager(val service: EewService) {
     /** 关闭所有连接 */
     fun destroy() {
         destroyed = true
+        service.mainHandler.removeCallbacks(drillStatusRunnable)
         cancelAllDownCheck()
         for (conn in connections.values) {
             conn.cancelPending()
@@ -230,17 +258,17 @@ class EewConnectionManager(val service: EewService) {
                 c.delay = 3_000L
                 c.failCount = 0L
             }
-            EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
-            patchSourceState(sourceId) { copy(connected = true, failCount = 0L, serverError = null) }
-            // 用户自注册动态源（beecld）连接成功 → 广播，供设置页弹出“已成功启用”悬浮提示
-            if (sourceId == "beecld") {
-                try {
-                    val i = Intent(EewService.ACTION_SOURCE_CONNECTED)
-                        .putExtra(EewService.EXTRA_SOURCE_ID, sourceId)
-                    androidx.localbroadcastmanager.content.LocalBroadcastManager
-                        .getInstance(service).sendBroadcast(i)
-                } catch (_: Exception) { }
+            // WS 恢复 → 停止该源的 HTTP 降级轮询，切回实时推送
+            service.httpFallback.stopFallback(sourceId)
+            patchSourceState(sourceId) { copy(connected = true, failCount = 0L, serverError = null, fallbackNote = null) }
+            service.updateIclPollingMode()
+            // 用户自注册动态源（beecld）与演练控制台（drill）连接成功 → 广播，
+            // 供设置页刷新状态并弹出“已成功启用”悬浮提示
+            if (sourceId == "beecld" || sourceId == "drill") {
+                AppEvents.postSourceConnected(sourceId)
             }
+            // 演练通道建立后立即回报一次状态，后台据此显示演示机在线位置
+            if (sourceId == "drill") sendDrillStatus()
             if (service.alertMgr.dataStaleNotified) {
                 service.alertMgr.dataStaleNotified = false
             }
@@ -251,6 +279,12 @@ class EewConnectionManager(val service: EewService) {
             // 任何报文（含心跳等非 EEW）都视为“链路活跃”，刷新新鲜度与源状态
             service.alertMgr.lastDataReceivedMs = System.currentTimeMillis()
             EewService.patchSourceState(sourceId) { copy(lastDataMs = System.currentTimeMillis()) }
+            // 演练控制帧优先拦截：只更新参考位置等配置，绝不进入 EEW 解析链，
+            // 因此不会写历史、不会触发告警；处理后立即回报新状态给后台。
+            if (sourceId == "drill" && DrillControl.handle(text)) {
+                sendDrillStatus()
+                return
+            }
             try {
                 service.alertMgr.handleRaw(text, sourceId)
             } catch (e: Exception) {
@@ -273,17 +307,30 @@ class EewConnectionManager(val service: EewService) {
             }
             Log.w(EewService.TAG, "WebSocket 断开($sourceId): ${t.message}")
             connectedSources.remove(sourceId)
-            EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
             cur.failCount++
             // 握手/升级被数据源以 5xx 拒绝（如 Wolfx 网关 503）→ 标记服务端异常，
             // 主页据此显示「源异常·503」；普通网络抖动/断网（response 为 null）则保持 null。
             val serverErr = if (response != null && response.code >= 500) response.code.toString() else null
-            patchSourceState(sourceId) { copy(connected = false, failCount = cur.failCount, serverError = serverErr) }
+            // HTTP 通道存活时不把源打成「未连接」，避免头条误报「监听中断」、
+            // 与降级轮询器的状态回报来回打架；HTTP 也死了才允许回到未连接。
+            val httpAlive = service.httpFallback.isReceiving(sourceId)
+            patchSourceState(sourceId) {
+                copy(
+                    connected = if (httpAlive) connected else false,
+                    failCount = cur.failCount,
+                    serverError = serverErr
+                )
+            }
+            // 连续失败 ≥2 次（约 6 秒）→ 启动同机构 HTTP 降级轮询（幂等，恢复后自动停止）
+            if (cur.failCount >= 2 && EewHttpFallbackPoller.FALLBACK_URLS.containsKey(sourceId)) {
+                service.httpFallback.startFallback(sourceId)
+            }
             if (cur.failCount == EewService.CONN_FAIL_WARN_THRESHOLD) {
                 Log.w(EewService.TAG, "数据源 ${cur.source.name} 连续失败 ${cur.failCount} 次，可能已不可用，将持续退避重试")
             }
             cur.scheduleReconnect()
             refreshHeadline()
+            service.updateIclPollingMode()
             if (connectedSources.size == 0) scheduleAllDownCheck()
         }
 
@@ -297,10 +344,14 @@ class EewConnectionManager(val service: EewService) {
             }
             Log.i(EewService.TAG, "WebSocket 关闭($sourceId): $code $reason")
             connectedSources.remove(sourceId)
-            EewService.updateState { copy(connectedSourceCount = connectedSources.size) }
             patchSourceState(sourceId) { copy(connected = false) }
+            // 服务端主动断开同样启动 HTTP 降级（重连成功后自动停止）
+            if (cur.failCount + 1 >= 2 && EewHttpFallbackPoller.FALLBACK_URLS.containsKey(sourceId)) {
+                service.httpFallback.startFallback(sourceId)
+            }
             cur.scheduleReconnect()
             refreshHeadline()
+            service.updateIclPollingMode()
             if (connectedSources.size == 0) scheduleAllDownCheck()
         }
     }

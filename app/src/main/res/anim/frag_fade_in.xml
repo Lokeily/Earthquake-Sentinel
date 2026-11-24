@@ -4,5 +4,5 @@
     <alpha
         android:fromAlpha="0.0"
         android:toAlpha="1.0"
-        android:duration="200" />
+        android:duration="@integer/anim_ms_fast" />
 </set>

@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 回放参数设置页（测试版）：选择模拟观测位置与倒计时模式，实时预览告警效果 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_app_background"
+    android:fillViewport="true"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="32dp">
+
+        <!-- 顶部栏：返回 + 标题 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/rs_back"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:padding="4dp"
+                android:src="@drawable/ic_chevron_left"
+                app:tint="@color/ios_label"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="@string/back"
+                android:background="?android:attr/selectableItemBackground" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="@string/replay_setup_title"
+                android:textColor="@color/ios_label"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <Space
+                android:layout_width="32dp"
+                android:layout_height="32dp" />
+        </LinearLayout>
+
+        <!-- 地震信息卡 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="18dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/rs_mag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="5.0级"
+                    android:textColor="@color/level_orange"
+                    android:textSize="30sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/rs_level_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="4dp"
+                    android:text="@string/level_yellow_name"
+                    android:textColor="@color/level_orange"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/rs_place"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="未知地区"
+                android:textColor="@color/ios_label"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/rs_meta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/rs_report_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_input"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:textColor="@color/ios_blue"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 模拟观测位置 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/replay_section_location"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="13sp" />
+
+        <RadioGroup
+            android:id="@+id/rg_location"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:paddingStart="14dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="14dp">
+
+            <RadioButton
+                android:id="@+id/rb_current"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="44dp"
+                android:buttonTint="@color/ios_blue"
+                android:text="@string/replay_loc_current"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/tv_current_sub"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="34dp"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1px"
+                android:layout_marginVertical="8dp"
+                android:background="@color/ios_separator" />
+
+            <RadioButton
+                android:id="@+id/rb_simulate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="44dp"
+                android:buttonTint="@color/ios_blue"
+                android:text="@string/replay_loc_simulate"
+                android:labelFor="@+id/et_distance"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="34dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/et_distance"
+                    android:layout_width="110dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingHorizontal="12dp"
+                    android:text="60"
+                    android:textColor="@color/ios_label"
+                    android:textSize="15sp"
+                    android:inputType="numberDecimal"
+                    android:maxLines="1"
+                    android:importantForAutofill="no" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/replay_unit_km"
+                    android:textColor="@color/ios_label_secondary"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </RadioGroup>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 倒计时模式 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/replay_section_countdown"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="13sp" />
+
+        <RadioGroup
+            android:id="@+id/rg_countdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:paddingStart="14dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp">
+
+            <RadioButton
+                android:id="@+id/rb_demo_30"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="44dp"
+                android:buttonTint="@color/ios_blue"
+                android:checked="true"
+                android:text="@string/replay_cd_demo"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp" />
+
+            <RadioButton
+                android:id="@+id/rb_real_eta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="44dp"
+                android:buttonTint="@color/ios_blue"
+                android:text="@string/replay_cd_real"
+                android:textColor="@color/ios_label"
+                android:textSize="15sp" />
+        </RadioGroup>
+
+        <Space android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 效果预览 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/replay_preview_title"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tv_preview_dist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/ios_label"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_preview_eta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ios_label"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_preview_intensity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ios_label"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_preview_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/replay_preview_hint"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="20dp" />
+
+        <Button
+            android:id="@+id/btn_start_replay"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:background="@drawable/bg_button_primary"
+            android:text="@string/replay_setup_start"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:text="@string/replay_setup_warn"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="11sp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -216,49 +216,49 @@
   <section id="sources" class="fx-block">
     <div class="container">
       <div class="fx-head">
-        <h2>多源冗余：一条链路挂了，还有别的</h2>
-        <p>地震预警报文需要经过公共转发节点才能到达手机。单一节点一旦限流、维护或断网，你就完全收不到预警——而你根本不会知道。</p>
+        <h2>官方直连 + 多层降级：一条链路挂了，预警不断</h2>
+        <p>预警报文需要经过网络才能到达手机。单一节点一旦限流、维护或断网，你就完全收不到预警——而你根本不会知道。</p>
       </div>
       <div class="source-grid">
         <div class="source-card">
-          <div class="source-name">Wolfx CENC</div>
-          <div class="source-url">ws-api.wolfx.jp/cenc_eew</div>
-          <span class="badge free">免 Key · 默认启用</span>
+          <div class="source-name">ICL 官方预警网</div>
+          <div class="source-url">mobile-new.chinaeew.cn · 1s 增量</div>
+          <span class="badge free">官方直连 · 默认启用</span>
         </div>
         <div class="source-card">
-          <div class="source-name">Wolfx SC / CQ</div>
-          <div class="source-url">四川 · 重庆地震局通道</div>
-          <span class="badge free">免 Key · 默认启用</span>
+          <div class="source-name">CENC 官方目录</div>
+          <div class="source-url">www.ceic.ac.cn · 权威历史</div>
+          <span class="badge free">官方 · 免 Key</span>
+        </div>
+        <div class="source-card">
+          <div class="source-name">Wolfx 四路转发</div>
+          <div class="source-url">CENC / 川 / 渝 / 台</div>
+          <span class="badge free">免 Key · 故障自动 HTTP 降级</span>
         </div>
         <div class="source-card">
           <div class="source-name">BeeCLD · 2v8</div>
           <div class="source-url">api.2v8.cn/ws/cea</div>
-          <span class="badge token">免费令牌 · 已内置</span>
-        </div>
-        <div class="source-card">
-          <div class="source-name">FAN Studio</div>
-          <div class="source-url">ws.fanstudio.tech/cea</div>
-          <span class="badge key">需 API 密钥 · 可选</span>
+          <span class="badge token">可选 · 用户自备令牌</span>
         </div>
       </div>
       <div class="fx-row" style="margin-top:56px">
         <div class="fx-copy">
           <span class="fx-tag">Redundancy</span>
-          <h3>任一主机可达即触发</h3>
-          <p>所有数据源指向同一套国家级预警数据，但走的是<strong>互不相同的主机与网络路径</strong>。它们同时在线，谁先送到就用谁的，重复报文自动去重。</p>
+          <h3>先到先发，三层降级</h3>
+          <p>所有数据源指向同一套国家级预警数据。它们同时在线，<strong>谁先到谁触发</strong>，重复报文自动去重；任一链路故障自动降级到下一层。</p>
           <ul class="fx-points">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>并行连接</b>：多条 WebSocket 同时保持，不是主备切换，没有切换延迟。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>并行连接</b>：官方源 1 秒增量轮询 + 多路 WebSocket 推送同时在线，没有切换延迟。</span></li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>自动去重</b>：同一次地震从多个源到达时，只弹一次告警。</span></li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>断线自愈</b>：任一连接掉线自动重连，未配置密钥的源会被直接跳过而不空转。</span></li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>状态可见</b>：主页实时显示每条链路的在线情况，不做黑盒。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>三层降级</b>：WS 推送 → 同机构 HTTP 轮询 → 备用探测源，逐层自动接管。</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>状态可见</b>：主页实时显示官方/转发每条链路的在线情况，不做黑盒。</span></li>
           </ul>
           <p style="margin-top:20px"><a class="link-arrow" href="how.html#arch">查看完整数据流架构<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></p>
         </div>
         <div class="fx-visual">
           <div class="reliability-graph" style="flex:none;width:100%;max-width:290px;height:270px">
-            <div class="rg-source">Wolfx</div>
-            <div class="rg-source">BeeCLD</div>
-            <div class="rg-source">FAN</div>
+            <div class="rg-source">ICL 官方</div>
+            <div class="rg-source">CENC 官方</div>
+            <div class="rg-source">Wolfx 转发</div>
             <div class="rg-hub">地震哨兵</div>
             <svg class="rg-lines" viewBox="0 0 200 220" preserveAspectRatio="none">
               <line x1="100" y1="30" x2="100" y2="180"></line>

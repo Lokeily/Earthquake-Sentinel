@@ -1,4 +1,5 @@
+// 根构建脚本：仅声明插件，版本统一由 gradle/libs.versions.toml（version catalog）管理
 plugins {
-    id("com.android.application") version "8.5.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
 }

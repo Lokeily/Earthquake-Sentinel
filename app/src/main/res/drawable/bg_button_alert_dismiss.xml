@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 告警页「我已安全」按钮：白色胶囊 + 等级色文字（文字色由 AlertActivity 按等级动态设置） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FFFFFF" />
+    <corners android:radius="26dp" />
+</shape>

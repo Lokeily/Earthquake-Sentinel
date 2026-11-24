@@ -13,6 +13,8 @@
     <color name="ios_green">#34C759</color>
     <color name="source_gray">#C7C7CC</color>
     <color name="source_orange">#FF9500</color>
+    <!-- 次级填充色（iOS secondarySystemFill）：胶囊按钮 / 输入框底色 -->
+    <color name="ios_fill_secondary">#EFEFF4</color>
 
     <!-- 四级预警配色（中国大陆地震预警标准） -->
     <color name="level_red">#FF3B30</color>
@@ -20,15 +22,11 @@
     <color name="level_yellow">#FFCC00</color>
     <color name="level_blue">#0A84FF</color>
 
-    <!-- 启动图标背景 -->
-    <color name="ic_launcher_background">#007AFF</color>
-
-    <!-- 兼容旧引用，避免遗漏处报错 -->
-    <color name="primary">#007AFF</color>
-    <color name="primary_dark">#0A6CFF</color>
-    <color name="accent">#007AFF</color>
-    <color name="bg_dark">#F2F2F7</color>
-    <color name="card">#FFFFFF</color>
-    <color name="text_primary">#1C1C1E</color>
-    <color name="text_secondary">#8E8E93</color>
+    <!-- Liquid Glass 玻璃卡片（v1.4.8）：微渐变 + 顶部高光，透出背景环境光斑 -->
+    <color name="glass_hi">#F2FFFFFF</color>
+    <color name="glass_lo">#E8FFFFFF</color>
+    <color name="glass_edge_top">#2EFFFFFF</color>
+    <color name="glass_stroke">#14A6AEB8</color>
+    <color name="glow_top">#0DFFFFFF</color>
+    <color name="transparent">#00000000</color>
 </resources>

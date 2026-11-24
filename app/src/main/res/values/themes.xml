@@ -10,9 +10,10 @@
         <item name="colorPrimary">@color/ios_blue</item>
         <item name="colorPrimaryDark">@color/ios_blue_dark</item>
         <item name="colorAccent">@color/ios_blue</item>
-        <item name="android:windowBackground">@color/ios_grouped_bg</item>
+        <!-- v1.4.8：窗口背景带顶部环境光斑，玻璃卡片半透明浮于其上，冷启动首帧即成色 -->
+        <item name="android:windowBackground">@drawable/bg_app_background</item>
         <item name="android:statusBarColor">@color/ios_grouped_bg</item>
-        <item name="android:navigationBarColor">@color/ios_card_bg</item>
+        <item name="android:navigationBarColor">@color/ios_grouped_bg</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">@bool/light_status_bar</item>
 
         <!-- 统一简体中文字体：所有文本（含动态震情地名）均使用 Noto Sans SC，

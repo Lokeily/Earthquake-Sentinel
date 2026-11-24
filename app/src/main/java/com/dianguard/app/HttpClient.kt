@@ -39,8 +39,9 @@ import javax.net.ssl.SSLPeerUnverifiedException
  *
  * 防重放 / 防注入说明：
  *  数据源均为公开无签名接口，无法对报文做请求级签名验证；防伪造依靠
- * 「证书固定（传输层）」+「多源融合交叉验证（EewFusion，应用层）」双层防线：
- *  单源伪造报文会被融合引擎的加权中位数/置信度机制抑制，双源以上一致才触发高等级告警。
+ * 「证书固定（传输层）」+「多源即时交叉核对（应用层）」双层防线：
+ *  单源伪造报文会因与官方/其他机构在发震时刻、震中、震级上的显著不一致而被
+ *  事件归并去重逻辑识别为异常，降低单点注入的影响。
  */
 object HttpClient {
 
@@ -67,7 +68,7 @@ object HttpClient {
         "www.seismicportal.eu" to listOf(
             "sha256/OmeVEgu8rx8NwWJVLHeJjEix5e/LIVM93VbBuAMUA9E=",  // leaf (seismicportal.eu)
             "sha256/nWN7PSep5XDQdge5zK24CnCRXHr3KvzhKEGxsdqCX9E="   // Let's Encrypt YR2
-        )
+        ),
     )
 
     /** 证书固定连续失败达到该次数 → 判定官方轮换证书 → 降级为系统信任 */
@@ -102,7 +103,8 @@ object HttpClient {
         if (!isPinFailure(t)) return
         if (host !in PINNED_HOSTS) return // 仅对已固定域名计数
         synchronized(degradeLock) {
-            val c = pinFailCounts.getOrDefault(host, 0) + 1
+            // minSdk=21：Map#getOrDefault 需 API 24，改以「先查后放」实现
+            val c = (pinFailCounts[host] ?: 0) + 1
             pinFailCounts[host] = c
             if (c >= PIN_FAIL_THRESHOLD && !degradedHosts.contains(host)) {
                 degradedHosts.add(host)

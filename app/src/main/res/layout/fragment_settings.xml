@@ -1,31 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 设置页（v1.3.1 重排版）：分组主设置页，二级菜单见 fragment_more_settings.xml -->
-<!-- 根布局用 FrameLayout：承载滚动内容与底部悬浮提示 float_tip（BeeCLD 连接成功时浮现后隐去） -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 设置页（v1.4.2 信息架构重构）：一级主设置页，只保留高频核心配置
+     （参考位置 / 预警阈值（昼夜） / 外观），工具、通用、关于全部收进二级页
+     fragment_more_settings.xml。根用 ScrollView，顶部悬浮提示 float_tip。 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ios_grouped_bg">
+    android:background="@drawable/bg_app_background"
+    android:fillViewport="true"
+    android:scrollbars="none">
 
-    <ScrollView
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="32dp">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="32dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="@string/settings_title"
             android:textColor="@color/ios_label"
-            android:textSize="22sp"
+            android:textSize="28sp"
             android:textStyle="bold" />
 
         <!-- ===================== 基础设置 ===================== -->
@@ -83,7 +82,7 @@
 
         <Space android:layout_width="match_parent" android:layout_height="16dp" />
 
-        <!-- 预警阈值卡片（仅烈度） -->
+        <!-- 预警阈值卡片（昼夜各一档，随等级变色） -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -99,19 +98,28 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
+            <!-- 白天烈度阈值 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="@string/settings_threshold_intensity_day_title"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:layout_marginTop="12dp">
+                android:layout_marginTop="6dp">
 
                 <Spinner
-                    android:id="@+id/spinner_intensity"
+                    android:id="@+id/spinner_intensity_day"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:visibility="invisible" />
 
                 <TextView
-                    android:id="@+id/tv_intensity_trigger"
+                    android:id="@+id/tv_intensity_day_trigger"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:background="@drawable/bg_input"
@@ -120,7 +128,42 @@
                     android:paddingEnd="16dp"
                     android:textColor="@color/ios_label"
                     android:textSize="15sp"
-                    android:drawableEnd="@drawable/ic_chevron_down"
+                    app:drawableEndCompat="@drawable/ic_chevron_down"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </FrameLayout>
+
+            <!-- 夜间烈度阈值 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="@string/settings_threshold_intensity_night_title"
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="12sp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="6dp">
+
+                <Spinner
+                    android:id="@+id/spinner_intensity_night"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="invisible" />
+
+                <TextView
+                    android:id="@+id/tv_intensity_night_trigger"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_input"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textColor="@color/ios_label"
+                    android:textSize="15sp"
+                    app:drawableEndCompat="@drawable/ic_chevron_down"
                     android:clickable="true"
                     android:focusable="true" />
             </FrameLayout>
@@ -129,7 +172,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:text="@string/settings_threshold_hint"
+                android:text="@string/settings_threshold_note"
                 android:textColor="@color/ios_label_secondary"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -173,109 +216,13 @@
                     android:paddingEnd="16dp"
                     android:textColor="@color/ios_label"
                     android:textSize="15sp"
-                    android:drawableEnd="@drawable/ic_chevron_down"
+                    app:drawableEndCompat="@drawable/ic_chevron_down"
                     android:clickable="true"
                     android:focusable="true" />
             </FrameLayout>
         </LinearLayout>
 
-        <!-- ===================== 数据源 ===================== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/section_source"
-            android:textColor="@color/ios_label_secondary"
-            android:textSize="13sp" />
-
-        <!-- BeeCLD 用户自注册源（可选数据源） -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/bg_card"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/beecld_title"
-                android:textColor="@color/ios_label"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="@string/beecld_desc"
-                android:textColor="@color/ios_label_secondary"
-                android:textSize="12sp" />
-
-            <Button
-                android:id="@+id/btn_beecld_register"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_button_primary"
-                android:text="@string/beecld_register_btn"
-                android:textColor="#FFFFFF"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null" />
-
-            <EditText
-                android:id="@+id/et_beecld_api"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_input"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:hint="@string/beecld_api_hint"
-                android:textColor="@color/ios_label"
-                android:textSize="15sp"
-                android:inputType="text"
-                android:importantForAutofill="no" />
-
-            <Button
-                android:id="@+id/btn_beecld_save"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_button_primary"
-                android:text="@string/beecld_save_btn"
-                android:textColor="#FFFFFF"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_beecld_disable"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_button_secondary"
-                android:text="@string/beecld_disable_btn"
-                android:textColor="@color/ios_blue"
-                android:textSize="14sp"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null" />
-
-            <TextView
-                android:id="@+id/tv_beecld_status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="@string/beecld_status_disabled"
-                android:textColor="@color/ios_label_secondary"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <!-- ===================== 工具 ===================== -->
+        <!-- ===================== 工具 / 更多设置入口 ===================== -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -290,39 +237,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/bg_card">
-
-            <!-- 测试报警 -->
-            <LinearLayout
-                android:id="@+id/row_test"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?android:attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/btn_test"
-                    android:textColor="@color/ios_label"
-                    android:textSize="16sp" />
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_chevron_right"
-                    android:tint="@color/ios_label_secondary" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1px"
-                android:background="@color/ios_separator" />
 
             <!-- 更多设置（下钻） -->
             <LinearLayout
@@ -349,25 +263,10 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_chevron_right"
-                    android:tint="@color/ios_label_secondary" />
+                    app:tint="@color/ios_label_secondary"
+                    android:importantForAccessibility="no" />
             </LinearLayout>
         </LinearLayout>
 
     </LinearLayout>
-    </ScrollView>
-
-    <!-- 底部悬浮提示：BeeCLD 连接成功时浮现，约 2.2s 后淡出隐去（见 SettingsFragment.showBottomFloat） -->
-    <TextView
-        android:id="@+id/float_tip"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="28dp"
-        android:background="@drawable/bg_float_tip"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="12dp"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:alpha="0"
-        android:visibility="gone" />
-</FrameLayout>
+</ScrollView>

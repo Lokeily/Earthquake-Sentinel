@@ -28,10 +28,12 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object AppUpdater {
 
-    private const val AUTHORITY = "com.dianguard.app.fileprovider"
     private const val UPDATE_DIR = "updates"
     private const val UPDATE_FILE = "app-update.apk"
     private const val TAG = "AppUpdater"
+
+    /** FileProvider authority 与 Manifest 的 ${applicationId}.fileprovider 保持一致（debug 包名带后缀，必须动态取） */
+    private fun fileProviderAuthority(context: Context): String = "${context.packageName}.fileprovider"
 
     /** 弹出“发现新版本”提示框（仅在新版本可用且未被用户忽略时调用） */
     fun showUpdateDialog(activity: AppCompatActivity, info: UpdateInfo) {
@@ -215,7 +217,7 @@ object AppUpdater {
     }
 
     private fun installApk(context: Context, file: File) {
-        val uri = FileProvider.getUriForFile(context, AUTHORITY, file)
+        val uri = FileProvider.getUriForFile(context, fileProviderAuthority(context), file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

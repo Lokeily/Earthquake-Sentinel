@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   主页（v1.0.17）：自绘底部导航选中后的内容区。
-  包含：当前状态 + 开启预警监听按钮 + 数据来源板块（动态行 + 备用探测源行 + 灰色更新小字）+ 保活入口。
+  包含：iOS 大标题 + 当前状态 + 开启预警监听按钮 + 数据来源面板（可折叠 + 备用探测源行 + 灰色
+  更新小字） + 保活入口 + 底部说明。
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ios_grouped_bg"
+    android:background="@drawable/bg_app_background"
     android:fillViewport="true"
     android:scrollbars="none">
 
@@ -18,21 +20,40 @@
         android:paddingTop="16dp"
         android:paddingBottom="32dp">
 
+        <!-- iOS 风格大标题区 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/app_name"
+            android:textColor="@color/ios_label"
+            android:textSize="30sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="@string/main_subtitle"
+            android:textColor="@color/ios_label_secondary"
+            android:textSize="14sp" />
+
+        <Space android:layout_width="match_parent" android:layout_height="12dp" />
+
         <!-- 当前状态卡片 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/bg_card"
-            android:padding="16dp">
+            android:padding="18dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/status_label"
-                android:textColor="@color/ios_label"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:textColor="@color/ios_label_secondary"
+                android:textSize="13sp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -43,8 +64,8 @@
 
                 <View
                     android:id="@+id/status_dot"
-                    android:layout_width="10dp"
-                    android:layout_height="10dp"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
                     android:layout_marginEnd="10dp"
                     android:background="@drawable/bg_src_dot"
                     android:backgroundTint="@color/source_gray" />
@@ -56,18 +77,18 @@
                     android:layout_weight="1"
                     android:text="@string/status_guard"
                     android:textColor="@color/ios_label"
-                    android:textSize="18sp"
+                    android:textSize="21sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
 
         <Space android:layout_width="match_parent" android:layout_height="16dp" />
 
-        <!-- 开启预警监听按钮（高亮主操作） -->
+        <!-- 开启预警监听按钮（iOS filled capsule） -->
         <Button
             android:id="@+id/btn_enable"
             android:layout_width="match_parent"
-            android:layout_height="54dp"
+            android:layout_height="50dp"
             android:background="@drawable/bg_button_primary"
             android:text="@string/home_btn_enable"
             android:textColor="#FFFFFF"
@@ -115,7 +136,8 @@
                     android:layout_width="22dp"
                     android:layout_height="22dp"
                     android:src="@drawable/ic_chevron_down"
-                    android:tint="@color/ios_label_secondary" />
+                    app:tint="@color/ios_label_secondary"
+                    android:importantForAccessibility="no" />
             </LinearLayout>
 
             <!-- 可折叠主体：源列表 + 备用探测源 + 提示 + 数据更新时间 -->
@@ -216,7 +238,7 @@
             <Button
                 android:id="@+id/btn_battery"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="46dp"
                 android:layout_marginTop="12dp"
                 android:background="@drawable/bg_button_secondary"
                 android:text="@string/btn_battery"
@@ -229,7 +251,7 @@
             <Button
                 android:id="@+id/btn_guide"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="46dp"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/bg_button_secondary"
                 android:text="@string/btn_guide"
